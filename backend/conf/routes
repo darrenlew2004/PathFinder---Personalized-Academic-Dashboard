@@ -1,0 +1,20 @@
+# Routes
+# This file defines all application routes
+
+# Authentication
+POST    /auth/login                     controllers.AuthController.login
+POST    /auth/logout                    controllers.AuthController.logout
+POST    /auth/register                  controllers.AuthController.register
+GET     /auth/verify                    controllers.AuthController.verifyToken
+
+# Student Stats
+GET     /api/students/current           controllers.StudentStatsController.getCurrentStudent
+GET     /api/students/:id/stats         controllers.StudentStatsController.getStudentStats(id: String)
+GET     /api/students/:id/progress      controllers.StudentStatsController.getCourseProgress(id: String)
+GET     /api/students/:id/risks         controllers.StudentStatsController.getRiskPredictions(id: String)
+
+# Health Check
+GET     /health                         controllers.HealthController.health
+
+# Map static resources from the /public folder to the /assets URL path
+GET     /assets/*file                   controllers.Assets.versioned(path="/public", file: Asset)

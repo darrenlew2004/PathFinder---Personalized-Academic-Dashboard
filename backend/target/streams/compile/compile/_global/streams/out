@@ -1,0 +1,49 @@
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:5:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method login,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mPOST    /auth/login                     controllers.AuthController.login[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:6:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method logout,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mPOST    /auth/logout                    controllers.AuthController.logout[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:7:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method register,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mPOST    /auth/register                  controllers.AuthController.register[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:8:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method verifyToken,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mGET     /auth/verify                    controllers.AuthController.verifyToken[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:11:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method getCurrentStudent,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mGET     /api/students/current           controllers.StudentStatsController.getCurrentStudent[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:17:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method health,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mGET     /health                         controllers.HealthController.health[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:5:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method login,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mPOST    /auth/login                     controllers.AuthController.login[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:6:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method logout,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mPOST    /auth/logout                    controllers.AuthController.logout[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:7:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method register,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mPOST    /auth/register                  controllers.AuthController.register[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:8:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method verifyToken,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mGET     /auth/verify                    controllers.AuthController.verifyToken[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:11:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method getCurrentStudent,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mGET     /api/students/current           controllers.StudentStatsController.getCurrentStudent[0m
+[0m[[0m[33mwarn[0m] [0m[0mC:\DieAndCry\backend\conf\routes:17:1: Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method health,[0m
+[0m[[0m[33mwarn[0m] [0m[0mor remove the empty argument list from its definition (Java-defined methods are exempt).[0m
+[0m[[0m[33mwarn[0m] [0m[0mIn Scala 3, an unapplied method like this will be eta-expanded into a function. [quickfixable][0m
+[0m[[0m[33mwarn[0m] [0m[0mGET     /health                         controllers.HealthController.health[0m
+[0m[[0m[33mwarn[0m] [0m[0m12 warnings found[0m
