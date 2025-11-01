@@ -1,0 +1,30 @@
+# FastAPI and ASGI server
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.6
+
+# Cassandra driver (async compatible with Python 3.13)
+cassandra-driver==3.29.2
+geomet==0.2.1.post1
+
+# Authentication & Security
+PyJWT==2.8.0
+bcrypt==4.1.1
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+email-validator==2.2.0
+
+# CORS
+fastapi-cors==0.0.6
+
+# Testing (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2

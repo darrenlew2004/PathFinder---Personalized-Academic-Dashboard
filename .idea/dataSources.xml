@@ -4,7 +4,7 @@
     <data-source source="LOCAL" name="subjectplanning@sunway.hep88.com" uuid="3e1467e0-968f-4d9b-bd1e-e3846bf2744c">
       <driver-ref>cassandra</driver-ref>
       <synchronize>true</synchronize>
-      <jdbc-driver>com.ing.data.cassandra.jdbc.CassandraDriver</jdbc-driver>
+      <jdbc-driver>com.dbschema.CassandraJdbcDriver</jdbc-driver>
       <jdbc-url>jdbc:cassandra://sunway.hep88.com:9042/subjectplanning</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
