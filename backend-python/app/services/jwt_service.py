@@ -14,14 +14,14 @@ class JWTService:
         self.algorithm = settings.JWT_ALGORITHM
         self.expiration_hours = settings.JWT_EXPIRATION_HOURS
     
-    def generate_token(self, user_id: UUID, email: str) -> str:
-        """Generate a JWT token for a user"""
+    def generate_token(self, user_id, email: str) -> str:
+        """Generate a JWT token for a user (user_id can be UUID or int)"""
         now = datetime.utcnow()
         expires_at = now + timedelta(hours=self.expiration_hours)
         
         payload = {
             "iss": "student-risk-prediction",
-            "sub": str(user_id),
+            "sub": str(user_id),  # Convert to string (handles both UUID and int)
             "email": email,
             "iat": now,
             "exp": expires_at
@@ -40,8 +40,18 @@ class JWTService:
                 issuer="student-risk-prediction"
             )
             
+            # Try to parse as int first, fallback to UUID
+            try:
+                user_id = int(payload["sub"])
+            except ValueError:
+                try:
+                    from uuid import UUID
+                    user_id = UUID(payload["sub"])
+                except:
+                    user_id = payload["sub"]
+            
             return {
-                "user_id": UUID(payload["sub"]),
+                "user_id": user_id,
                 "email": payload["email"]
             }
         except jwt.ExpiredSignatureError:

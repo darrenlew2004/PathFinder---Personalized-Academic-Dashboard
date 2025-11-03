@@ -4,7 +4,7 @@ Tables: students, subjects
 """
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Any
 from uuid import UUID, uuid4
 
 
@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 class Student(BaseModel):
     """Student model matching actual Cassandra table structure"""
-    id: UUID = Field(default_factory=uuid4)
+    id: int  # INT in Cassandra, not UUID!
     program: Optional[str] = None
     awardclassification: Optional[str] = None
     broadsheetyear: Optional[int] = None
@@ -27,12 +27,12 @@ class Student(BaseModel):
     overallcavg: Optional[float] = None
     overallcgpa: Optional[float] = None
     programmecode: Optional[str] = None
-    qualifications: Optional[str] = None
+    qualifications: Optional[Any] = None  # SortedSet - complex type
     race: Optional[str] = None
     sem: Optional[int] = None
     sponsorname: Optional[str] = None
     status: Optional[str] = None
-    subjects: Optional[List[str]] = None  # List of subject references
+    subjects: Optional[Any] = None  # List of maps - complex type
     year: Optional[int] = None
     yearonaverage: Optional[float] = None
     yearonecgpa: Optional[float] = None
@@ -53,7 +53,7 @@ class StudentCreate(BaseModel):
 
 class StudentResponse(BaseModel):
     """API response model for student"""
-    id: UUID
+    id: int  # INT, not UUID
     ic: Optional[str] = None
     name: Optional[str] = None
     programmecode: Optional[str] = None
@@ -71,7 +71,7 @@ class StudentResponse(BaseModel):
 
 class Subject(BaseModel):
     """Subject model matching actual Cassandra table structure"""
-    id: UUID = Field(default_factory=uuid4)
+    id: int  # INT in Cassandra
     programmecode: Optional[str] = None
     subjectcode: Optional[str] = None
     subjectname: Optional[str] = None
@@ -88,7 +88,7 @@ class Subject(BaseModel):
 
 class SubjectResponse(BaseModel):
     """API response model for subject"""
-    id: UUID
+    id: int
     subjectcode: Optional[str] = None
     subjectname: Optional[str] = None
     programmecode: Optional[str] = None
@@ -115,8 +115,8 @@ class StudentWithSubjects(BaseModel):
 # ==================== AUTH MODELS ====================
 
 class LoginRequest(BaseModel):
-    """Login with IC number (no password in current schema)"""
-    ic: str
+    """Login with student ID (int)"""
+    student_id: int
 
 
 class LoginResponse(BaseModel):

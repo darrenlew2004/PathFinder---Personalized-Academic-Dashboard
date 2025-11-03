@@ -17,6 +17,23 @@ class StudentRepositoryActual:
         self.session = cassandra_service.get_session()
         self.keyspace = "subjectplanning"
     
+    def find_by_id(self, student_id: int) -> Optional[Student]:
+        """Find student by ID (int primary key)"""
+        try:
+            query = f"""
+                SELECT * FROM {self.keyspace}.students 
+                WHERE id = %s
+            """
+            result = self.session.execute(query, (student_id,))
+            row = result.one()
+            
+            if row:
+                return self._map_row_to_student(row)
+            return None
+        except Exception as e:
+            logger.error(f"Error finding student by id: {str(e)}")
+            return None
+    
     def find_by_ic(self, ic: str) -> Optional[Student]:
         """Find student by IC number"""
         try:
@@ -33,23 +50,6 @@ class StudentRepositoryActual:
             return None
         except Exception as e:
             logger.error(f"Error finding student by IC: {str(e)}")
-            return None
-    
-    def find_by_id(self, student_id: UUID) -> Optional[Student]:
-        """Find student by UUID"""
-        try:
-            query = f"""
-                SELECT * FROM {self.keyspace}.students 
-                WHERE id = %s
-            """
-            result = self.session.execute(query, (student_id,))
-            row = result.one()
-            
-            if row:
-                return self._map_row_to_student(row)
-            return None
-        except Exception as e:
-            logger.error(f"Error finding student by id: {str(e)}")
             return None
     
     def find_by_programme_code(self, programmecode: str) -> List[Student]:
@@ -112,7 +112,7 @@ class StudentRepositoryActual:
             logger.error(f"Error creating student: {str(e)}")
             raise
     
-    def update(self, student_id: UUID, updates: dict) -> Optional[Student]:
+    def update(self, student_id: int, updates: dict) -> Optional[Student]:
         """Update student fields"""
         try:
             # Build dynamic UPDATE query
@@ -148,7 +148,7 @@ class StudentRepositoryActual:
             logger.error(f"Error updating student: {str(e)}")
             raise
     
-    def delete(self, student_id: UUID) -> bool:
+    def delete(self, student_id: int) -> bool:
         """Delete a student"""
         try:
             query = f"DELETE FROM {self.keyspace}.students WHERE id = %s"
@@ -177,12 +177,12 @@ class StudentRepositoryActual:
             overallcavg=getattr(row, 'overallcavg', None),
             overallcgpa=getattr(row, 'overallcgpa', None),
             programmecode=getattr(row, 'programmecode', None),
-            qualifications=getattr(row, 'qualifications', None),
+            qualifications=getattr(row, 'qualifications', None),  # Keep as-is (complex type)
             race=getattr(row, 'race', None),
             sem=getattr(row, 'sem', None),
             sponsorname=getattr(row, 'sponsorname', None),
             status=getattr(row, 'status', None),
-            subjects=list(getattr(row, 'subjects', [])) if getattr(row, 'subjects', None) else None,
+            subjects=getattr(row, 'subjects', None),  # Keep as-is (complex type)
             year=getattr(row, 'year', None),
             yearonaverage=getattr(row, 'yearonaverage', None),
             yearonecgpa=getattr(row, 'yearonecgpa', None)
