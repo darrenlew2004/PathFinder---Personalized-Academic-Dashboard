@@ -12,13 +12,13 @@ from app.services.cassandra_service import cassandra_service
 logger = logging.getLogger(__name__)
 
 
-class SubjectRepositoryActual:
+class SubjectRepository:
     def __init__(self):
         self.session = cassandra_service.get_session()
         self.keyspace = "subjectplanning"
     
-    def find_by_id(self, subject_id: UUID) -> Optional[Subject]:
-        """Find subject by UUID"""
+    def find_by_id(self, subject_id: int) -> Optional[Subject]:
+        """Find subject by int ID"""
         try:
             query = f"""
                 SELECT * FROM {self.keyspace}.subjects 
@@ -48,15 +48,17 @@ class SubjectRepositoryActual:
             logger.error(f"Error finding subjects by code: {str(e)}")
             return []
     
-    def find_by_programme_code(self, programmecode: str) -> List[Subject]:
-        """Find all subjects for a programme"""
+    def find_by_programme_code(self, programmecode: str, limit: int = 50) -> List[Subject]:
+        """Find subjects for a programme (with limit to avoid slow queries)"""
         try:
+            # Add timeout and limit to prevent hanging
             query = f"""
                 SELECT * FROM {self.keyspace}.subjects 
                 WHERE programmecode = %s 
+                LIMIT %s
                 ALLOW FILTERING
             """
-            result = self.session.execute(query, (programmecode,))
+            result = self.session.execute(query, (programmecode, limit), timeout=5.0)
             return [self._map_row_to_subject(row) for row in result]
         except Exception as e:
             logger.error(f"Error finding subjects by programme: {str(e)}")
@@ -90,4 +92,4 @@ class SubjectRepositoryActual:
 
 
 # Singleton instance
-subject_repository_actual = SubjectRepositoryActual()
+subject_repository = SubjectRepository()

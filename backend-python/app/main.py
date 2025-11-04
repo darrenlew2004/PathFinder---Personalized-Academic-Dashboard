@@ -4,8 +4,6 @@ import logging
 import sys
 from app.config import settings
 from app.routes import auth, student_stats, health
-# Routes adapted to existing Cassandra schema (students/subjects tables)
-from app.routes import auth_actual, student_stats_actual
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +20,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Academic risk prediction and course planning API",
+    description="PathFinder Academic Dashboard API - Student and Subject Management",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -38,14 +36,8 @@ app.add_middleware(
 )
 
 # Include routers
-# Original routes (email/password, courses/enrollments) – may not work with existing DB schema
 app.include_router(auth.router)
 app.include_router(student_stats.router)
-
-# Actual-schema routes (IC-based login, students/subjects)
-app.include_router(auth_actual.router)
-app.include_router(student_stats_actual.router)
-
 app.include_router(health.router)
 
 

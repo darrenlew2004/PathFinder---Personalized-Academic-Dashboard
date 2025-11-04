@@ -1,249 +1,147 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Header
-from typing import Optional, Dict, List
-from uuid import UUID
+"""
+Student stats routes using students/subjects tables
+"""
+
+from fastapi import APIRouter, HTTPException, status, Depends
 import logging
-from app.models import StudentStats, CourseProgress, StudentResponse, RiskLevel
-from app.repositories.student_repository import student_repository
-from app.repositories.course_repository import course_repository
-from app.repositories.enrollment_repository import enrollment_repository
-from app.services.jwt_service import jwt_service
-from app.services.risk_prediction_service import risk_prediction_service
+from app.models import StudentResponse, SubjectResponse, StudentWithSubjects
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/students", tags=["Student Stats"])
+router = APIRouter(prefix="/api/students", tags=["Students"])
 
 
-def get_current_user(authorization: Optional[str] = Header(None)) -> Dict:
-    """Dependency to get current authenticated user from JWT token"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+@router.get("/list", response_model=list[StudentResponse])
+async def list_students(limit: int = 10):
+    """List students (for testing - shows IC numbers you can use to login)"""
+    from app.repositories.student_repository import student_repository
     
+    students = student_repository.find_all(limit=limit)
+    return [
+        StudentResponse(
+            id=s.id,
+            ic=s.ic,
+            name=s.name,
+            programmecode=s.programmecode,
+            program=s.program,
+            overallcgpa=s.overallcgpa,
+            overallcavg=s.overallcavg,
+            year=s.year,
+            sem=s.sem,
+            status=s.status,
+            graduated=s.graduated,
+            cohort=s.cohort
+        ) for s in students
+    ]
+
+
+def get_current_user(authorization: str = None):
+    from app.services.jwt_service import jwt_service
+    
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No token provided")
     token = authorization.split(" ")[1]
     claims = jwt_service.validate_token(token)
-    
     if not claims:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials"
-        )
-    
+        raise HTTPException(status_code=401, detail="Invalid token")
     return claims
 
 
 @router.get("/current", response_model=StudentResponse)
-async def get_current_student(current_user: Dict = Depends(get_current_user)):
-    """Get current authenticated student's information"""
-    try:
-        student = student_repository.find_by_id(current_user["user_id"])
-        
-        if not student:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
-            )
-        
-        return StudentResponse(
+async def get_current_student(claims: dict = Depends(get_current_user)):
+    from app.repositories.student_repository import student_repository
+    
+    student_id = claims["user_id"]
+    student = student_repository.find_by_id(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return StudentResponse(
+        id=student.id,
+        ic=student.ic,
+        name=student.name,
+        programmecode=student.programmecode,
+        program=student.program,
+        overallcgpa=student.overallcgpa,
+        overallcavg=student.overallcavg,
+        year=student.year,
+        sem=student.sem,
+        status=student.status,
+        graduated=student.graduated,
+        cohort=student.cohort
+    )
+
+
+@router.get("/{student_id}/subjects", response_model=StudentWithSubjects)
+async def get_student_subjects(student_id: int, limit: int = 50):
+    """Get student and their subjects by student ID (int)"""
+    from app.repositories.student_repository import student_repository
+    from app.repositories.subject_repository import subject_repository
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    student = student_repository.find_by_id(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    # Get subjects by programme code with timeout protection
+    subjects = []
+    if student.programmecode:
+        try:
+            logger.info(f"Fetching subjects for programme: {student.programmecode}, limit: {limit}")
+            subjects = subject_repository.find_by_programme_code(student.programmecode, limit=limit)
+            logger.info(f"Found {len(subjects)} subjects")
+        except Exception as e:
+            logger.error(f"Error fetching subjects: {str(e)}")
+            # Continue without subjects rather than failing the whole request
+            subjects = []
+
+    # Build response
+    subject_responses = []
+    for s in subjects:
+        try:
+            subject_responses.append(SubjectResponse(
+                id=s.id,
+                subjectcode=s.subjectcode,
+                subjectname=s.subjectname,
+                programmecode=s.programmecode,
+                grade=s.grade,
+                overallpercentage=s.overallpercentage,
+                attendancepercentage=s.attendancepercentage,
+                courseworkpercentage=s.courseworkpercentage,
+                status=s.status,
+                examyear=s.examyear,
+                exammonth=s.exammonth
+            ))
+        except Exception as e:
+            logger.warning(f"Error mapping subject {s.id}: {str(e)}")
+            continue
+
+    avg_att = None
+    avg_pct = None
+    if subject_responses:
+        att_values = [s.attendancepercentage for s in subject_responses if s.attendancepercentage is not None]
+        pct_values = [s.overallpercentage for s in subject_responses if s.overallpercentage is not None]
+        avg_att = sum(att_values)/len(att_values) if att_values else None
+        avg_pct = sum(pct_values)/len(pct_values) if pct_values else None
+
+    return StudentWithSubjects(
+        student=StudentResponse(
             id=student.id,
-            student_id=student.student_id,
+            ic=student.ic,
             name=student.name,
-            email=student.email,
-            gpa=student.gpa,
-            semester=student.semester,
-            created_at=student.created_at,
-            updated_at=student.updated_at
-        )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting current student: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while fetching student data"
-        )
-
-
-@router.get("/{student_id}/stats", response_model=StudentStats)
-async def get_student_stats(student_id: str, current_user: Dict = Depends(get_current_user)):
-    """Get comprehensive statistics for a student"""
-    try:
-        # Find student
-        student = student_repository.find_by_id(UUID(student_id))
-        
-        if not student:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
-            )
-        
-        # Get all enrollments
-        enrollments = enrollment_repository.find_by_student_id(student.id)
-        
-        # Get current enrollments
-        current_enrollments = enrollment_repository.find_current_enrollments(student.id)
-        
-        # Get completed enrollments
-        completed_enrollments = enrollment_repository.find_completed_enrollments(student.id)
-        
-        # Build course progress for current courses
-        current_courses: List[CourseProgress] = []
-        for enrollment in current_enrollments:
-            course = course_repository.find_by_id(enrollment.course_id)
-            if course:
-                # Get risk prediction
-                risk_pred = risk_prediction_service.predict_risk(student, course, enrollments)
-                
-                current_courses.append(CourseProgress(
-                    course=course,
-                    enrollment=enrollment,
-                    risk_prediction=risk_pred
-                ))
-        
-        # Calculate total credits
-        total_credits = sum(
-            course_repository.find_by_id(e.course_id).credits 
-            for e in completed_enrollments 
-            if course_repository.find_by_id(e.course_id)
-        )
-        
-        # Calculate average attendance
-        avg_attendance = (
-            sum(e.attendance_rate for e in enrollments) / len(enrollments)
-            if enrollments else 0.0
-        )
-        
-        # Calculate risk distribution
-        risk_distribution = {
-            "LOW": 0,
-            "MEDIUM": 0,
-            "HIGH": 0
-        }
-        for cp in current_courses:
-            if cp.risk_prediction:
-                risk_distribution[cp.risk_prediction.risk_level.value] += 1
-        
-        return StudentStats(
-            student=StudentResponse(
-                id=student.id,
-                student_id=student.student_id,
-                name=student.name,
-                email=student.email,
-                gpa=student.gpa,
-                semester=student.semester,
-                created_at=student.created_at,
-                updated_at=student.updated_at
-            ),
-            current_courses=current_courses,
-            completed_courses=len(completed_enrollments),
-            total_credits=total_credits,
-            average_attendance=avg_attendance,
-            risk_distribution=risk_distribution
-        )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting student stats: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while fetching student statistics"
-        )
-
-
-@router.get("/{student_id}/progress", response_model=List[CourseProgress])
-async def get_course_progress(student_id: str, current_user: Dict = Depends(get_current_user)):
-    """Get course progress for a student"""
-    try:
-        student = student_repository.find_by_id(UUID(student_id))
-        
-        if not student:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
-            )
-        
-        # Get current enrollments
-        current_enrollments = enrollment_repository.find_current_enrollments(student.id)
-        all_enrollments = enrollment_repository.find_by_student_id(student.id)
-        
-        course_progress: List[CourseProgress] = []
-        for enrollment in current_enrollments:
-            course = course_repository.find_by_id(enrollment.course_id)
-            if course:
-                # Get risk prediction
-                risk_pred = risk_prediction_service.predict_risk(student, course, all_enrollments)
-                
-                course_progress.append(CourseProgress(
-                    course=course,
-                    enrollment=enrollment,
-                    risk_prediction=risk_pred
-                ))
-        
-        return course_progress
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting course progress: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while fetching course progress"
-        )
-
-
-@router.get("/{student_id}/risks", response_model=List[Dict])
-async def get_risk_predictions(student_id: str, current_user: Dict = Depends(get_current_user)):
-    """Get risk predictions for a student's current courses"""
-    try:
-        student = student_repository.find_by_id(UUID(student_id))
-        
-        if not student:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
-            )
-        
-        # Get current enrollments
-        current_enrollments = enrollment_repository.find_current_enrollments(student.id)
-        all_enrollments = enrollment_repository.find_by_student_id(student.id)
-        
-        # Get courses
-        current_courses = []
-        for enrollment in current_enrollments:
-            course = course_repository.find_by_id(enrollment.course_id)
-            if course:
-                current_courses.append(course)
-        
-        # Get risk predictions
-        predictions = risk_prediction_service.predict_risks_for_student(
-            student, current_courses, all_enrollments
-        )
-        
-        # Format response
-        return [
-            {
-                "id": str(pred.id),
-                "student_id": str(pred.student_id),
-                "course_id": str(pred.course_id),
-                "risk_level": pred.risk_level.value,
-                "confidence": pred.confidence,
-                "factors": pred.factors,
-                "recommendations": pred.recommendations,
-                "predicted_grade": pred.predicted_grade,
-                "created_at": pred.created_at.isoformat()
-            }
-            for pred in predictions
-        ]
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting risk predictions: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while fetching risk predictions"
-        )
+            programmecode=student.programmecode,
+            program=student.program,
+            overallcgpa=student.overallcgpa,
+            overallcavg=student.overallcavg,
+            year=student.year,
+            sem=student.sem,
+            status=student.status,
+            graduated=student.graduated,
+            cohort=student.cohort
+        ),
+        subjects=subject_responses,
+        total_subjects=len(subject_responses),
+        average_attendance=avg_att,
+        average_percentage=avg_pct
+    )

@@ -1,10 +1,13 @@
+"""
+Student Repository for ACTUAL Cassandra schema
+Table: students (with 23 columns as per real schema)
+"""
+
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime
 import logging
-from app.models import Student, StudentCreate
+from app.models.actual_models import Student, StudentCreate, StudentResponse
 from app.services.cassandra_service import cassandra_service
-from passlib.hash import bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -14,26 +17,8 @@ class StudentRepository:
         self.session = cassandra_service.get_session()
         self.keyspace = "subjectplanning"
     
-    def find_by_email(self, email: str) -> Optional[Student]:
-        """Find student by email"""
-        try:
-            query = f"""
-                SELECT * FROM {self.keyspace}.students 
-                WHERE email = %s 
-                ALLOW FILTERING
-            """
-            result = self.session.execute(query, (email,))
-            row = result.one()
-            
-            if row:
-                return self._map_row_to_student(row)
-            return None
-        except Exception as e:
-            logger.error(f"Error finding student by email: {str(e)}")
-            return None
-    
-    def find_by_id(self, student_id: UUID) -> Optional[Student]:
-        """Find student by ID"""
+    def find_by_id(self, student_id: int) -> Optional[Student]:
+        """Find student by ID (int primary key)"""
         try:
             query = f"""
                 SELECT * FROM {self.keyspace}.students 
@@ -49,95 +34,124 @@ class StudentRepository:
             logger.error(f"Error finding student by id: {str(e)}")
             return None
     
-    def find_by_student_id(self, student_id: str) -> Optional[Student]:
-        """Find student by student ID number"""
+    def find_by_ic(self, ic: str) -> Optional[Student]:
+        """Find student by IC number"""
         try:
             query = f"""
                 SELECT * FROM {self.keyspace}.students 
-                WHERE student_id = %s 
+                WHERE ic = %s 
                 ALLOW FILTERING
             """
-            result = self.session.execute(query, (student_id,))
+            result = self.session.execute(query, (ic,))
             row = result.one()
             
             if row:
                 return self._map_row_to_student(row)
             return None
         except Exception as e:
-            logger.error(f"Error finding student by student_id: {str(e)}")
+            logger.error(f"Error finding student by IC: {str(e)}")
             return None
+    
+    def find_by_programme_code(self, programmecode: str) -> List[Student]:
+        """Find all students in a programme"""
+        try:
+            query = f"""
+                SELECT * FROM {self.keyspace}.students 
+                WHERE programmecode = %s 
+                ALLOW FILTERING
+            """
+            result = self.session.execute(query, (programmecode,))
+            return [self._map_row_to_student(row) for row in result]
+        except Exception as e:
+            logger.error(f"Error finding students by programme: {str(e)}")
+            return []
+    
+    def find_all(self, limit: int = 100) -> List[Student]:
+        """Find all students (with limit)"""
+        try:
+            query = f"SELECT * FROM {self.keyspace}.students LIMIT %s"
+            result = self.session.execute(query, (limit,))
+            return [self._map_row_to_student(row) for row in result]
+        except Exception as e:
+            logger.error(f"Error finding all students: {str(e)}")
+            return []
     
     def create(self, student_data: StudentCreate) -> Student:
         """Create a new student"""
         try:
-            # Hash password
-            password_hash = bcrypt.hash(student_data.password)
-            
             student = Student(
-                student_id=student_data.student_id,
+                ic=student_data.ic,
                 name=student_data.name,
-                email=student_data.email,
-                password_hash=password_hash,
-                gpa=student_data.gpa,
-                semester=student_data.semester
+                programmecode=student_data.programmecode,
+                year=student_data.year,
+                sem=student_data.sem,
+                gender=student_data.gender,
+                country=student_data.country
             )
             
             query = f"""
                 INSERT INTO {self.keyspace}.students 
-                (id, student_id, name, email, password_hash, gpa, semester, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (id, ic, name, programmecode, year, sem, gender, country)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             self.session.execute(query, (
                 student.id,
-                student.student_id,
+                student.ic,
                 student.name,
-                student.email,
-                student.password_hash,
-                student.gpa,
-                student.semester,
-                student.created_at,
-                student.updated_at
+                student.programmecode,
+                student.year,
+                student.sem,
+                student.gender,
+                student.country
             ))
             
-            logger.info(f"Created student: {student.email}")
+            logger.info(f"Created student: {student.ic}")
             return student
         except Exception as e:
             logger.error(f"Error creating student: {str(e)}")
             raise
     
-    def update(self, student: Student) -> Student:
-        """Update an existing student"""
+    def update(self, student_id: int, updates: dict) -> Optional[Student]:
+        """Update student fields"""
         try:
-            student.updated_at = datetime.utcnow()
+            # Build dynamic UPDATE query
+            set_clauses = []
+            values = []
             
+            allowed_fields = [
+                'name', 'programmecode', 'year', 'sem', 'status', 'gender',
+                'country', 'cohort', 'overallcgpa', 'overallcavg', 'graduated'
+            ]
+            
+            for field, value in updates.items():
+                if field in allowed_fields:
+                    set_clauses.append(f"{field} = %s")
+                    values.append(value)
+            
+            if not set_clauses:
+                logger.warning("No valid fields to update")
+                return self.find_by_id(student_id)
+            
+            values.append(student_id)
             query = f"""
                 UPDATE {self.keyspace}.students 
-                SET name = %s, gpa = %s, semester = %s, updated_at = %s
+                SET {', '.join(set_clauses)}
                 WHERE id = %s
             """
             
-            self.session.execute(query, (
-                student.name,
-                student.gpa,
-                student.semester,
-                student.updated_at,
-                student.id
-            ))
+            self.session.execute(query, values)
+            logger.info(f"Updated student: {student_id}")
+            return self.find_by_id(student_id)
             
-            logger.info(f"Updated student: {student.id}")
-            return student
         except Exception as e:
             logger.error(f"Error updating student: {str(e)}")
             raise
     
-    def delete(self, student_id: UUID) -> bool:
+    def delete(self, student_id: int) -> bool:
         """Delete a student"""
         try:
-            query = f"""
-                DELETE FROM {self.keyspace}.students 
-                WHERE id = %s
-            """
+            query = f"DELETE FROM {self.keyspace}.students WHERE id = %s"
             self.session.execute(query, (student_id,))
             logger.info(f"Deleted student: {student_id}")
             return True
@@ -145,32 +159,33 @@ class StudentRepository:
             logger.error(f"Error deleting student: {str(e)}")
             return False
     
-    def find_all(self) -> List[Student]:
-        """Find all students"""
-        try:
-            query = f"SELECT * FROM {self.keyspace}.students"
-            result = self.session.execute(query)
-            return [self._map_row_to_student(row) for row in result]
-        except Exception as e:
-            logger.error(f"Error finding all students: {str(e)}")
-            return []
-    
-    def verify_password(self, student: Student, password: str) -> bool:
-        """Verify student password"""
-        return bcrypt.verify(password, student.password_hash)
-    
     def _map_row_to_student(self, row) -> Student:
         """Map Cassandra row to Student model"""
         return Student(
             id=row.id,
-            student_id=row.student_id,
-            name=row.name,
-            email=row.email,
-            password_hash=row.password_hash,
-            gpa=row.gpa,
-            semester=row.semester,
-            created_at=row.created_at,
-            updated_at=row.updated_at
+            program=getattr(row, 'program', None),
+            awardclassification=getattr(row, 'awardclassification', None),
+            broadsheetyear=getattr(row, 'broadsheetyear', None),
+            cavg=getattr(row, 'cavg', None),
+            cohort=getattr(row, 'cohort', None),
+            country=getattr(row, 'country', None),
+            finanicalaid=getattr(row, 'finanicalaid', None),
+            gender=getattr(row, 'gender', None),
+            graduated=getattr(row, 'graduated', None),
+            ic=getattr(row, 'ic', None),
+            name=getattr(row, 'name', None),
+            overallcavg=getattr(row, 'overallcavg', None),
+            overallcgpa=getattr(row, 'overallcgpa', None),
+            programmecode=getattr(row, 'programmecode', None),
+            qualifications=getattr(row, 'qualifications', None),  # Keep as-is (complex type)
+            race=getattr(row, 'race', None),
+            sem=getattr(row, 'sem', None),
+            sponsorname=getattr(row, 'sponsorname', None),
+            status=getattr(row, 'status', None),
+            subjects=getattr(row, 'subjects', None),  # Keep as-is (complex type)
+            year=getattr(row, 'year', None),
+            yearonaverage=getattr(row, 'yearonaverage', None),
+            yearonecgpa=getattr(row, 'yearonecgpa', None)
         )
 
 

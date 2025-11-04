@@ -1,137 +1,133 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from typing import Optional, List, Dict
-from datetime import datetime
+"""
+Models matching the ACTUAL Cassandra database schema
+Tables: students, subjects
+"""
+
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List, Any
 from uuid import UUID, uuid4
-from enum import Enum
 
 
-class RiskLevel(str, Enum):
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
+# ==================== STUDENT MODELS ====================
 
+class Student(BaseModel):
+    """Student model matching actual Cassandra table structure"""
+    id: int  # INT in Cassandra, not UUID!
+    program: Optional[str] = None
+    awardclassification: Optional[str] = None
+    broadsheetyear: Optional[int] = None
+    cavg: Optional[float] = None
+    cohort: Optional[str] = None
+    country: Optional[str] = None
+    finanicalaid: Optional[str] = None  # Note: typo in DB
+    gender: Optional[str] = None
+    graduated: Optional[bool] = None
+    ic: Optional[str] = None  # IC number - unique identifier
+    name: Optional[str] = None
+    overallcavg: Optional[float] = None
+    overallcgpa: Optional[float] = None
+    programmecode: Optional[str] = None
+    qualifications: Optional[Any] = None  # SortedSet - complex type
+    race: Optional[str] = None
+    sem: Optional[int] = None
+    sponsorname: Optional[str] = None
+    status: Optional[str] = None
+    subjects: Optional[Any] = None  # List of maps - complex type
+    year: Optional[int] = None
+    yearonaverage: Optional[float] = None
+    yearonecgpa: Optional[float] = None
 
-class UserRole(str, Enum):
-    STUDENT = "STUDENT"
-    ADMIN = "ADMIN"
-    LECTURER = "LECTURER"
-
-
-class CourseStatus(str, Enum):
-    ENROLLED = "ENROLLED"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    DROPPED = "DROPPED"
-
-
-class StudentBase(BaseModel):
-    student_id: str = Field(..., description="Student ID number")
-    name: str = Field(..., min_length=1, max_length=255)
-    email: EmailStr
-    gpa: float = Field(0.0, ge=0.0, le=4.0)
-    semester: int = Field(1, ge=1)
-
-
-class StudentCreate(StudentBase):
-    password: str = Field(..., min_length=6)
-
-
-class Student(StudentBase):
-    id: UUID = Field(default_factory=uuid4)
-    password_hash: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
     model_config = ConfigDict(from_attributes=True)
 
 
-class StudentResponse(StudentBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
+class StudentCreate(BaseModel):
+    """For creating a new student"""
+    ic: str  # Required: IC number
+    name: str  # Required: Student name
+    programmecode: Optional[str] = None
+    year: Optional[int] = None
+    sem: Optional[int] = None
+    gender: Optional[str] = None
+    country: Optional[str] = None
 
 
-class CourseBase(BaseModel):
-    course_code: str = Field(..., max_length=50)
-    course_name: str = Field(..., max_length=255)
-    credits: int = Field(..., ge=1, le=6)
-    difficulty: float = Field(..., ge=1.0, le=5.0, description="Course difficulty rating")
-    prerequisites: List[str] = Field(default_factory=list)
-    description: str = Field(default="")
+class StudentResponse(BaseModel):
+    """API response model for student"""
+    id: int  # INT, not UUID
+    ic: Optional[str] = None
+    name: Optional[str] = None
+    programmecode: Optional[str] = None
+    program: Optional[str] = None
+    overallcgpa: Optional[float] = None
+    overallcavg: Optional[float] = None
+    year: Optional[int] = None
+    sem: Optional[int] = None
+    status: Optional[str] = None
+    graduated: Optional[bool] = None
+    cohort: Optional[str] = None
 
 
-class Course(CourseBase):
-    id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    model_config = ConfigDict(from_attributes=True)
+# ==================== SUBJECT MODELS ====================
 
-
-class EnrollmentBase(BaseModel):
-    student_id: UUID
-    course_id: UUID
-    semester: int
-    status: CourseStatus = CourseStatus.ENROLLED
-    attendance_rate: float = Field(0.0, ge=0.0, le=1.0)
-
-
-class Enrollment(EnrollmentBase):
-    id: UUID = Field(default_factory=uuid4)
+class Subject(BaseModel):
+    """Subject model matching actual Cassandra table structure"""
+    id: int  # INT in Cassandra
+    programmecode: Optional[str] = None
+    subjectcode: Optional[str] = None
+    subjectname: Optional[str] = None
+    examyear: Optional[int] = None
+    exammonth: Optional[int] = None
+    status: Optional[str] = None
+    attendancepercentage: Optional[float] = None
+    courseworkpercentage: Optional[float] = None
     grade: Optional[str] = None
-    enrolled_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
-    
+    overallpercentage: Optional[float] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
-class RiskPredictionBase(BaseModel):
-    student_id: UUID
-    course_id: UUID
-    risk_level: RiskLevel
-    confidence: float = Field(..., ge=0.0, le=1.0)
-    factors: Dict[str, float] = Field(default_factory=dict)
-    recommendations: List[str] = Field(default_factory=list)
-    predicted_grade: Optional[str] = None
+class SubjectResponse(BaseModel):
+    """API response model for subject"""
+    id: int
+    subjectcode: Optional[str] = None
+    subjectname: Optional[str] = None
+    programmecode: Optional[str] = None
+    grade: Optional[str] = None
+    overallpercentage: Optional[float] = None
+    attendancepercentage: Optional[float] = None
+    courseworkpercentage: Optional[float] = None
+    status: Optional[str] = None
+    examyear: Optional[int] = None
+    exammonth: Optional[int] = None
 
 
-class RiskPrediction(RiskPredictionBase):
-    id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    model_config = ConfigDict(from_attributes=True)
+# ==================== COMBINED MODELS ====================
 
-
-class CourseProgress(BaseModel):
-    course: Course
-    enrollment: Enrollment
-    risk_prediction: Optional[RiskPrediction] = None
-    
-    model_config = ConfigDict(from_attributes=True)
-
-
-class StudentStats(BaseModel):
+class StudentWithSubjects(BaseModel):
+    """Student with their subjects"""
     student: StudentResponse
-    current_courses: List[CourseProgress]
-    completed_courses: int
-    total_credits: int
-    average_attendance: float
-    risk_distribution: Dict[str, int]
-    
-    model_config = ConfigDict(from_attributes=True)
+    subjects: List[SubjectResponse] = []
+    total_subjects: int = 0
+    average_grade: Optional[float] = None
+    average_attendance: Optional[float] = None
 
+
+# ==================== AUTH MODELS ====================
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+    """Login with student ID (int)"""
+    student_id: int
 
 
 class LoginResponse(BaseModel):
+    """Login response with JWT token"""
     token: str
     student: StudentResponse
 
 
+# ==================== ERROR MODEL ====================
+
 class ApiError(BaseModel):
-    message: str
-    code: Optional[str] = None
+    """Standard API error response"""
+    error: str
+    detail: Optional[str] = None
