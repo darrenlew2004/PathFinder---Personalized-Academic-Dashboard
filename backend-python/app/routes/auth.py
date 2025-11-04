@@ -72,6 +72,35 @@ async def logout():
     return {"message": "Logged out successfully"}
 
 
+@router.post("/refresh")
+async def refresh_token(request: dict):
+    """
+    Refresh JWT token
+    Note: In production, you'd want to use refresh tokens with different expiration
+    """
+    from app.services.jwt_service import jwt_service
+    
+    token = request.get("token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token required"
+        )
+    
+    # Validate the old token
+    claims = jwt_service.validate_token(token)
+    if not claims:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    # Generate new token with same claims
+    new_token = jwt_service.generate_token(claims["user_id"], claims.get("email", ""))
+    
+    return {"token": new_token}
+
+
 @router.get("/verify")
 async def verify_token(authorization: str = None):
     """Verify JWT token from Authorization header"""

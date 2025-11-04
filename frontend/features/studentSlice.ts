@@ -1,72 +1,62 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../services/api';
 
-export interface Course {
-  id: string;
-  courseCode: string;
-  courseName: string;
-  credits: number;
-  difficulty: number;
-  prerequisites: string[];
-  description: string;
-}
-
-export interface Enrollment {
-  id: string;
-  studentId: string;
-  courseId: string;
+export interface Subject {
+  id: number;
+  programme_code: string;
+  subject_code: string;
+  subject_name: string;
+  subject_type: string;
+  credit: number;
   semester: number;
-  grade: string | null;
-  status: 'ENROLLED' | 'COMPLETED' | 'FAILED' | 'DROPPED';
-  attendanceRate: number;
+  prerequisite: any;
+  core_subject_in_programme: any;
+  level: number;
 }
 
-export interface RiskPrediction {
-  id: string;
-  studentId: string;
-  courseId: string;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-  confidence: number;
-  factors: Record<string, number>;
-  recommendations: string[];
-  predictedGrade: string | null;
-  createdAt: string;
+export interface Student {
+  id: number;
+  name: string;
+  ic: string;
+  programme_code: string;
+  qualifications: any;
+  semester: number;
+  session: string;
+  intake: string;
+  cgpa: number;
+  credits_obtained: number;
+  subjects: any;
+  total_credits: number;
+  status: string;
+  probation_status: string;
+  school: string;
+  email: string;
+  gender: string;
+  race: string;
+  nationality: string;
+  age: number;
+  spm_credits: number;
+  foundation_cgpa: number;
+  muet_band: number;
 }
 
-export interface CourseProgress {
-  course: Course;
-  enrollment: Enrollment;
-  riskPrediction: RiskPrediction | null;
-}
-
-export interface StudentStats {
-  student: {
-    id: string;
-    studentId: string;
-    name: string;
-    email: string;
-    gpa: number;
-    semester: number;
-  };
-  currentCourses: CourseProgress[];
-  completedCourses: number;
-  totalCredits: number;
-  averageAttendance: number;
-  riskDistribution: Record<string, number>;
+export interface StudentWithSubjects {
+  student: Student;
+  subjects: Subject[];
 }
 
 interface StudentsState {
-  stats: StudentStats | null;
-  courseProgress: CourseProgress[];
-  riskPredictions: RiskPrediction[];
+  currentStudent: Student | null;
+  studentWithSubjects: StudentWithSubjects | null;
+  allStudents: Student[];
   loading: boolean;
   error: string | null;
 }
 
 const initialState: StudentsState = {
-  stats: null,
-  courseProgress: [],
-  riskPredictions: [],
+  currentStudent: null,
+  studentWithSubjects: null,
+  allStudents: [],
   loading: false,
   error: null,
 };
@@ -78,31 +68,31 @@ export const fetchStudentStats = createAsyncThunk(
       const response = await api.get('/api/students/current');
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch student stats');
+      return rejectWithValue(error.response?.data?.detail || error.response?.data?.error || 'Failed to fetch student data');
     }
   }
 );
 
-export const fetchCourseProgress = createAsyncThunk(
-  'students/fetchCourseProgress',
-  async (studentId: string, { rejectWithValue }) => {
+export const fetchStudentWithSubjects = createAsyncThunk(
+  'students/fetchWithSubjects',
+  async (studentId: number, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/api/students/${studentId}/progress`);
+      const response = await api.get(`/api/students/${studentId}/subjects`);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch course progress');
+      return rejectWithValue(error.response?.data?.detail || error.response?.data?.error || 'Failed to fetch student subjects');
     }
   }
 );
 
-export const fetchRiskPredictions = createAsyncThunk(
-  'students/fetchRiskPredictions',
-  async (studentId: string, { rejectWithValue }) => {
+export const fetchAllStudents = createAsyncThunk(
+  'students/fetchAll',
+  async (limit: number = 50, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/api/students/${studentId}/risks`);
+      const response = await api.get(`/api/students/list?limit=${limit}`);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to fetch risk predictions');
+      return rejectWithValue(error.response?.data?.detail || error.response?.data?.error || 'Failed to fetch students');
     }
   }
 );
@@ -112,48 +102,48 @@ const studentsSlice = createSlice({
   initialState,
   reducers: {
     clearStudentData: (state) => {
-      state.stats = null;
-      state.courseProgress = [];
-      state.riskPredictions = [];
+      state.currentStudent = null;
+      state.studentWithSubjects = null;
+      state.allStudents = [];
     },
   },
   extraReducers: (builder) => {
     builder
-      // Fetch Student Stats
+      // Fetch Current Student
       .addCase(fetchStudentStats.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchStudentStats.fulfilled, (state, action) => {
         state.loading = false;
-        state.stats = action.payload;
+        state.currentStudent = action.payload;
         state.error = null;
       })
       .addCase(fetchStudentStats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       })
-      // Fetch Course Progress
-      .addCase(fetchCourseProgress.pending, (state) => {
+      // Fetch Student with Subjects
+      .addCase(fetchStudentWithSubjects.pending, (state) => {
         state.loading = true;
       })
-      .addCase(fetchCourseProgress.fulfilled, (state, action) => {
+      .addCase(fetchStudentWithSubjects.fulfilled, (state, action) => {
         state.loading = false;
-        state.courseProgress = action.payload;
+        state.studentWithSubjects = action.payload;
       })
-      .addCase(fetchCourseProgress.rejected, (state, action) => {
+      .addCase(fetchStudentWithSubjects.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       })
-      // Fetch Risk Predictions
-      .addCase(fetchRiskPredictions.pending, (state) => {
+      // Fetch All Students
+      .addCase(fetchAllStudents.pending, (state) => {
         state.loading = true;
       })
-      .addCase(fetchRiskPredictions.fulfilled, (state, action) => {
+      .addCase(fetchAllStudents.fulfilled, (state, action) => {
         state.loading = false;
-        state.riskPredictions = action.payload;
+        state.allStudents = action.payload;
       })
-      .addCase(fetchRiskPredictions.rejected, (state, action) => {
+      .addCase(fetchAllStudents.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

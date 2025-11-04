@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { School } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
-import { login, register, clearError } from '../../features/authSlice';
+import { login, clearError } from '../../features/authSlice';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -38,16 +38,7 @@ const Login: React.FC = () => {
   const { loading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
   const [tabValue, setTabValue] = useState(0);
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [registerData, setRegisterData] = useState({
-    studentId: '',
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    gpa: '',
-    semester: '',
-  });
+  const [loginData, setLoginData] = useState({ student_id: '' });
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -65,26 +56,11 @@ const Login: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await dispatch(login(loginData));
-  };
-
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (registerData.password !== registerData.confirmPassword) {
+    const studentId = parseInt(loginData.student_id);
+    if (isNaN(studentId)) {
       return;
     }
-
-    const userData = {
-      studentId: registerData.studentId,
-      name: registerData.name,
-      email: registerData.email,
-      password: registerData.password,
-      gpa: registerData.gpa ? parseFloat(registerData.gpa) : undefined,
-      semester: registerData.semester ? parseInt(registerData.semester) : undefined,
-    };
-
-    await dispatch(register(userData));
+    await dispatch(login({ student_id: studentId }));
   };
 
   return (
@@ -111,7 +87,7 @@ const Login: React.FC = () => {
 
             <Tabs value={tabValue} onChange={handleTabChange} centered sx={{ mb: 2 }}>
               <Tab label="Login" />
-              <Tab label="Register" />
+              <Tab label="Register" disabled />
             </Tabs>
 
             {error && (
@@ -124,21 +100,13 @@ const Login: React.FC = () => {
               <form onSubmit={handleLoginSubmit}>
                 <TextField
                   fullWidth
-                  label="Email"
-                  type="email"
-                  value={loginData.email}
-                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                  required
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Password"
-                  type="password"
-                  value={loginData.password}
-                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                  label="Student ID"
+                  type="number"
+                  value={loginData.student_id}
+                  onChange={(e) => setLoginData({ ...loginData, student_id: e.target.value })}
                   required
                   sx={{ mb: 3 }}
+                  helperText="Enter your numeric student ID to login"
                 />
                 <Button
                   fullWidth
@@ -159,90 +127,9 @@ const Login: React.FC = () => {
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
-              <form onSubmit={handleRegisterSubmit}>
-                <TextField
-                  fullWidth
-                  label="Student ID"
-                  value={registerData.studentId}
-                  onChange={(e) => setRegisterData({ ...registerData, studentId: e.target.value })}
-                  required
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Full Name"
-                  value={registerData.name}
-                  onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                  required
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={registerData.email}
-                  onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                  required
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Password"
-                  type="password"
-                  value={registerData.password}
-                  onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                  required
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Confirm Password"
-                  type="password"
-                  value={registerData.confirmPassword}
-                  onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                  required
-                  error={registerData.password !== registerData.confirmPassword && registerData.confirmPassword !== ''}
-                  helperText={
-                    registerData.password !== registerData.confirmPassword && registerData.confirmPassword !== ''
-                      ? 'Passwords do not match'
-                      : ''
-                  }
-                  sx={{ mb: 2 }}
-                />
-                <Box display="flex" gap={2} mb={3}>
-                  <TextField
-                    fullWidth
-                    label="Current GPA"
-                    type="number"
-                    inputProps={{ step: '0.01', min: '0', max: '4' }}
-                    value={registerData.gpa}
-                    onChange={(e) => setRegisterData({ ...registerData, gpa: e.target.value })}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Semester"
-                    type="number"
-                    inputProps={{ min: '1', max: '12' }}
-                    value={registerData.semester}
-                    onChange={(e) => setRegisterData({ ...registerData, semester: e.target.value })}
-                  />
-                </Box>
-                <Button
-                  fullWidth
-                  type="submit"
-                  variant="contained"
-                  size="large"
-                  disabled={loading || registerData.password !== registerData.confirmPassword}
-                  sx={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                    },
-                  }}
-                >
-                  {loading ? <CircularProgress size={24} color="inherit" /> : 'Register'}
-                </Button>
-              </form>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Registration is currently disabled. Please contact your administrator to get access.
+              </Alert>
             </TabPanel>
           </CardContent>
         </Card>

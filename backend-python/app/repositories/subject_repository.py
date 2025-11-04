@@ -1,12 +1,12 @@
 """
-Subject Repository for ACTUAL Cassandra schema
+Subject Repository for Cassandra schema
 Table: subjects (with 11 columns as per real schema)
 """
 
 from typing import Optional, List
 from uuid import UUID
 import logging
-from app.models.actual_models import Subject, SubjectResponse
+from app.models import Subject, SubjectResponse
 from app.services.cassandra_service import cassandra_service
 
 logger = logging.getLogger(__name__)

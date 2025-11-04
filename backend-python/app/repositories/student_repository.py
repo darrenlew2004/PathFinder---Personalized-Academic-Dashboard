@@ -1,12 +1,12 @@
 """
-Student Repository for ACTUAL Cassandra schema
+Student Repository for Cassandra schema
 Table: students (with 23 columns as per real schema)
 """
 
 from typing import Optional, List
 from uuid import UUID
 import logging
-from app.models.actual_models import Student, StudentCreate, StudentResponse
+from app.models import Student, StudentCreate, StudentResponse
 from app.services.cassandra_service import cassandra_service
 
 logger = logging.getLogger(__name__)

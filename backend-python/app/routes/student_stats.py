@@ -2,7 +2,8 @@
 Student stats routes using students/subjects tables
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Header
+from typing import Optional
 import logging
 from app.models import StudentResponse, SubjectResponse, StudentWithSubjects
 
@@ -35,15 +36,19 @@ async def list_students(limit: int = 10):
     ]
 
 
-def get_current_user(authorization: str = None):
+def get_current_user(authorization: Optional[str] = Header(None)):
+    """Extract and validate JWT token from Authorization header"""
     from app.services.jwt_service import jwt_service
     
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="No token provided")
+    
     token = authorization.split(" ")[1]
     claims = jwt_service.validate_token(token)
+    
     if not claims:
         raise HTTPException(status_code=401, detail="Invalid token")
+    
     return claims
 
 

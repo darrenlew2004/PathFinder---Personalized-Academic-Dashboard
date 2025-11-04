@@ -2,12 +2,29 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { api } from '../services/api';
 
 export interface Student {
-  id: string;
-  studentId: string;
+  id: number;
   name: string;
-  email: string;
-  gpa: number;
+  ic: string;
+  programme_code: string;
+  qualifications: any;
   semester: number;
+  session: string;
+  intake: string;
+  cgpa: number;
+  credits_obtained: number;
+  subjects: any;
+  total_credits: number;
+  status: string;
+  probation_status: string;
+  school: string;
+  email: string;
+  gender: string;
+  race: string;
+  nationality: string;
+  age: number;
+  spm_credits: number;
+  foundation_cgpa: number;
+  muet_band: number;
 }
 
 interface AuthState {
@@ -28,7 +45,7 @@ const initialState: AuthState = {
 
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+  async (credentials: { student_id: number }, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/login', credentials);
       if (response?.data?.token) {
@@ -37,7 +54,7 @@ export const login = createAsyncThunk(
       return response.data;
     } catch (error) {
       const err = error as any;
-      return rejectWithValue(err?.response?.data ?? String(err));
+      return rejectWithValue(err?.response?.data?.detail || err?.response?.data || String(err));
     }
   }
 );
@@ -46,24 +63,18 @@ export const register = createAsyncThunk(
   'auth/register',
   async (
     userData: {
-      studentId: string;
+      student_id: number;
       name: string;
-      email: string;
-      password: string;
-      gpa?: number;
-      semester?: number;
+      ic: string;
     },
     { rejectWithValue }
   ) => {
     try {
-      const response = await api.post('/auth/register', userData);
-      if (response?.data?.token) {
-        localStorage.setItem('token', response.data.token);
-      }
-      return response.data;
+      // Registration not supported - database is read-only
+      return rejectWithValue('Registration is not available. Please contact your administrator.');
     } catch (error) {
       const err = error as any;
-      return rejectWithValue(err?.response?.data ?? String(err));
+      return rejectWithValue(err?.response?.data?.detail || err?.response?.data || String(err));
     }
   }
 );
@@ -90,7 +101,7 @@ const authSlice = createSlice({
     });
     builder.addCase(login.fulfilled, (state, action: PayloadAction<any>) => {
       state.loading = false;
-      state.user = action.payload.user ?? action.payload;
+      state.user = action.payload.student ?? action.payload.user ?? action.payload;
       state.token = action.payload.token ?? state.token;
       state.isAuthenticated = !!state.token;
       state.error = null;
