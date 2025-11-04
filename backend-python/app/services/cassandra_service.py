@@ -73,7 +73,12 @@ class CassandraService:
             
         except Exception as e:
             logger.error(f"Failed to connect to Cassandra: {str(e)}")
-            raise
+            # Don't re-raise here so the application can start even if Cassandra is
+            # unavailable (useful for local development or when Cassandra is down).
+            # Leave _session/_cluster as None and allow callers to handle missing
+            # connection when they attempt to use the database.
+            self._session = None
+            self._cluster = None
     
     def _create_keyspace(self):
         """Create keyspace if it doesn't exist"""

@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     CASSANDRA_PORT: int = 9042
     CASSANDRA_KEYSPACE: str = "subjectplanning"
     CASSANDRA_DATACENTER: str = "datacenter1"
-    CASSANDRA_USERNAME: str = ""
-    CASSANDRA_PASSWORD: str = ""
+    CASSANDRA_USERNAME: str = "planusertest"
+    CASSANDRA_PASSWORD: str = "Ic7cU8K965Zqx"
     
     # JWT
     JWT_SECRET_KEY: str = "your-256-bit-secret-change-this-in-production-make-it-long"
