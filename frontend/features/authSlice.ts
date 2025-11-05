@@ -5,26 +5,27 @@ export interface Student {
   id: number;
   name: string;
   ic: string;
-  programme_code: string;
-  qualifications: any;
-  semester: number;
-  session: string;
-  intake: string;
-  cgpa: number;
-  credits_obtained: number;
-  subjects: any;
-  total_credits: number;
+  programmecode: string;
+  program: string;
+  overallcgpa: number;
+  overallcavg: number;
+  year: number;
+  sem: number;
   status: string;
-  probation_status: string;
-  school: string;
-  email: string;
+  graduated: boolean;
+  cohort: string;
   gender: string;
   race: string;
-  nationality: string;
-  age: number;
-  spm_credits: number;
-  foundation_cgpa: number;
-  muet_band: number;
+  country: string;
+  yearonecgpa: number;
+  awardclassification: string;
+  broadsheetyear: number;
+  cavg: number;
+  finanicalaid: string;
+  qualifications: any;
+  sponsorname: string;
+  subjects: any;
+  yearonaverage: number;
 }
 
 interface AuthState {
