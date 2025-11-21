@@ -16,15 +16,21 @@ class StudentRepository:
     def __init__(self):
         self.session = cassandra_service.get_session()
         self.keyspace = "subjectplanning"
+        # Prepare statements for better performance
+        self._prepared_find_by_id = None
+    
+    def _get_prepared_find_by_id(self):
+        """Lazy load prepared statement for find_by_id"""
+        if self._prepared_find_by_id is None:
+            query = f"SELECT * FROM {self.keyspace}.students WHERE id = ?"
+            self._prepared_find_by_id = self.session.prepare(query)
+        return self._prepared_find_by_id
     
     def find_by_id(self, student_id: int) -> Optional[Student]:
-        """Find student by ID (int primary key)"""
+        """Find student by ID (int primary key) - uses prepared statement for speed"""
         try:
-            query = f"""
-                SELECT * FROM {self.keyspace}.students 
-                WHERE id = %s
-            """
-            result = self.session.execute(query, (student_id,))
+            prepared = self._get_prepared_find_by_id()
+            result = self.session.execute(prepared, (student_id,))
             row = result.one()
             
             if row:

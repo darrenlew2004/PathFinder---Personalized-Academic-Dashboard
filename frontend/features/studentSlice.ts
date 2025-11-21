@@ -107,6 +107,9 @@ const studentsSlice = createSlice({
       state.studentWithSubjects = null;
       state.allStudents = [];
     },
+    setCurrentStudent: (state, action) => {
+      state.currentStudent = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -151,5 +154,5 @@ const studentsSlice = createSlice({
   },
 });
 
-export const { clearStudentData } = studentsSlice.actions;
+export const { clearStudentData, setCurrentStudent } = studentsSlice.actions;
 export default studentsSlice.reducer;

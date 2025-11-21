@@ -16,6 +16,15 @@ class SubjectRepository:
     def __init__(self):
         self.session = cassandra_service.get_session()
         self.keyspace = "subjectplanning"
+        # Prepare statements for better performance
+        self._prepared_find_by_programme = None
+    
+    def _get_prepared_find_by_programme(self):
+        """Lazy load prepared statement for find_by_programme_code"""
+        if self._prepared_find_by_programme is None:
+            query = f"SELECT * FROM {self.keyspace}.subjects WHERE programmecode = ? LIMIT ? ALLOW FILTERING"
+            self._prepared_find_by_programme = self.session.prepare(query)
+        return self._prepared_find_by_programme
     
     def find_by_id(self, subject_id: int) -> Optional[Subject]:
         """Find subject by int ID"""
@@ -49,16 +58,11 @@ class SubjectRepository:
             return []
     
     def find_by_programme_code(self, programmecode: str, limit: int = 50) -> List[Subject]:
-        """Find subjects for a programme (with limit to avoid slow queries)"""
+        """Find subjects for a programme (with limit to avoid slow queries) - uses prepared statement"""
         try:
-            # Add timeout and limit to prevent hanging
-            query = f"""
-                SELECT * FROM {self.keyspace}.subjects 
-                WHERE programmecode = %s 
-                LIMIT %s
-                ALLOW FILTERING
-            """
-            result = self.session.execute(query, (programmecode, limit), timeout=5.0)
+            # Use prepared statement with timeout for better performance
+            prepared = self._get_prepared_find_by_programme()
+            result = self.session.execute(prepared, (programmecode, limit), timeout=5.0)
             return [self._map_row_to_subject(row) for row in result]
         except Exception as e:
             logger.error(f"Error finding subjects by programme: {str(e)}")

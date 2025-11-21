@@ -46,11 +46,16 @@ const initialState: AuthState = {
 
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: { student_id: number }, { rejectWithValue }) => {
+  async (credentials: { student_id: number }, { rejectWithValue, dispatch }) => {
     try {
       const response = await api.post('/auth/login', credentials);
       if (response?.data?.token) {
         localStorage.setItem('token', response.data.token);
+      }
+      // Store student data in students slice to avoid duplicate fetch
+      if (response?.data?.student) {
+        const { setCurrentStudent } = await import('./studentSlice');
+        dispatch(setCurrentStudent(response.data.student));
       }
       return response.data;
     } catch (error) {
@@ -98,6 +103,7 @@ const authSlice = createSlice({
       state.user = action.payload.student ?? action.payload.user ?? action.payload;
       state.token = action.payload.token ?? state.token;
       state.isAuthenticated = !!state.token;
+      // Store student data immediately to avoid duplicate fetch
       state.error = null;
     });
     builder.addCase(login.rejected, (state, action) => {

@@ -30,12 +30,11 @@ const Dashboard: React.FC = () => {
   const { currentStudent, loading, error } = useSelector((state: RootState) => state.students);
 
   useEffect(() => {
-    dispatch(fetchStudentStats());
-  }, [dispatch]);
-
-  useEffect(() => {
-    dispatch(fetchStudentStats());
-  }, [dispatch]);
+    // Only fetch if we don't already have student data from login
+    if (!currentStudent) {
+      dispatch(fetchStudentStats());
+    }
+  }, [dispatch, currentStudent]);
 
   if (loading && !currentStudent) {
     return (
