@@ -62,14 +62,7 @@ export const login = createAsyncThunk(
 
 export const register = createAsyncThunk(
   'auth/register',
-  async (
-    userData: {
-      student_id: number;
-      name: string;
-      ic: string;
-    },
-    { rejectWithValue }
-  ) => {
+  async (_userData: { student_id: number; name: string; ic: string }, { rejectWithValue }) => {
     try {
       // Registration not supported - database is read-only
       return rejectWithValue('Registration is not available. Please contact your administrator.');

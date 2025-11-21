@@ -1,51 +1,47 @@
-# Student Risk Prediction System
+# PathFinder - Personalized Academic Dashboard
 
-A full-stack application for predicting academic risk and guiding course planning using Scala/Play Framework backend with Cassandra database and React/TypeScript frontend.
+A full-stack application for academic planning and student data management using FastAPI/Python backend with Cassandra database and React/TypeScript frontend.
 
 ## System Architecture
 
 ### Backend Stack
-- **Framework**: Play Framework 2.9.4
-- **Language**: Scala 2.13.16
+- **Framework**: FastAPI (Python)
+- **Language**: Python 3.13+
 - **Database**: Apache Cassandra (External cluster)
 - **Authentication**: JWT
 - **API**: RESTful JSON API
+- **Event Loop**: Gevent (for Cassandra driver compatibility)
 
 ### Frontend Stack
 - **Framework**: React 18 with TypeScript
 - **Build Tool**: Vite
 - **UI Library**: Material-UI (MUI)
 - **State Management**: Redux Toolkit
-- **Charts**: Recharts
 - **HTTP Client**: Axios
 
 ### Database
 - **Cluster**: sunway.hep88.com:9042
 - **Keyspace**: subjectplanning
-- **Driver**: DataStax Java Driver 4.17.0
+- **Driver**: Cassandra Driver 3.29.2 with gevent
 
 ## Prerequisites
 
-- **JDK 11 or higher**
-- **Scala 2.13.16**
-- **sbt 1.9+**
-- **Node.js 18+ and npm/yarn**
+- **Python 3.13+**
+- **Node.js 18+ and npm**
 - **Cassandra Access** (External cluster at sunway.hep88.com:9042)
 
 ## Project Structure
 
 ```
-student-risk-prediction/
-├── backend/                    # Scala/Play Framework Backend
+PathFinder---Personalized-Academic-Dashboard/
+├── backend/                    # Python/FastAPI Backend
 │   ├── app/
-│   │   ├── controllers/       # API Controllers
-│   │   ├── models/            # Data Models
-│   │   ├── repositories/      # Database Repositories
-│   │   └── services/          # Business Logic Services
-│   ├── conf/
-│   │   ├── application.conf   # Configuration
-│   │   └── routes            # API Routes
-│   └── build.sbt             # Build Configuration
+│   │   ├── routes/            # API Endpoints
+│   │   ├── models/            # Pydantic Models
+│   │   ├── repositories/      # Database Access Layer
+│   │   └── services/          # Business Logic
+│   ├── run.py                 # Entry Point
+│   └── requirements.txt       # Python Dependencies
 │
 └── frontend/                  # React/TypeScript Frontend
     ├── src/
@@ -60,46 +56,60 @@ student-risk-prediction/
 
 ## Backend Setup
 
-### 1. Clone and Navigate to Backend
+### 1. Navigate to Backend
 
 ```bash
 cd backend
 ```
 
-### 2. Configure Cassandra Connection
-
-Edit `conf/application.conf`:
-
-```hocon
-cassandra {
-  contactPoint = "sunway.hep88.com"
-  port = 9042
-  keyspace = "subjectplanning"
-  datacenter = "datacenter1"
-}
-
-jwt {
-  secret = "your-secure-secret-key-change-in-production"
-  expirationHours = 24
-}
-```
-
-### 3. Install Dependencies and Run
+### 2. Install Dependencies
 
 ```bash
-# Install dependencies
-sbt update
+# Run setup script (creates venv and installs packages)
+.\setup.ps1
 
-# Run development server
-sbt run
+# Or manually:
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### 3. Configure Environment
+
+Edit `.env` file:
+
+```env
+CASSANDRA_HOST=sunway.hep88.com
+CASSANDRA_PORT=9042
+CASSANDRA_KEYSPACE=subjectplanning
+CASSANDRA_DATACENTER=datacenter1
+CASSANDRA_USERNAME=your-username
+CASSANDRA_PASSWORD=your-password
+
+JWT_SECRET_KEY=your-secure-secret-key-change-in-production
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=24
+
+PORT=9000
+```
+
+### 4. Run Backend
+
+```bash
+# Using start script
+.\start.bat
+
+# Or directly
+python run.py
 
 # The backend will start on http://localhost:9000
 ```
 
-### 4. Verify Backend
+### 5. Verify Backend
 
 ```bash
 curl http://localhost:9000/health
+# Or visit: http://localhost:9000/docs (Swagger UI)
 ```
 
 ## Frontend Setup
@@ -138,106 +148,51 @@ yarn dev
 
 ## Database Schema
 
-The application automatically creates the following tables in Cassandra:
+The application connects to existing Cassandra tables:
 
-### Students Table
-```cql
-CREATE TABLE students (
-  id UUID PRIMARY KEY,
-  student_id TEXT,
-  name TEXT,
-  email TEXT,
-  password_hash TEXT,
-  gpa DOUBLE,
-  semester INT,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-);
-```
+### Students Table (23 columns)
+- `id` (int) - Primary key
+- `ic`, `name` - Student identification
+- `programmecode`, `program` - Program information
+- `overallcgpa`, `overallcavg` - Academic performance
+- `year`, `sem` - Current academic position
+- `status`, `graduated`, `cohort` - Student status
+- And 11 additional fields for demographics and academic history
 
-### Courses Table
-```cql
-CREATE TABLE courses (
-  id UUID PRIMARY KEY,
-  course_code TEXT,
-  course_name TEXT,
-  credits INT,
-  difficulty DOUBLE,
-  prerequisites LIST<TEXT>,
-  description TEXT,
-  created_at TIMESTAMP
-);
-```
-
-### Enrollments Table
-```cql
-CREATE TABLE enrollments (
-  id UUID PRIMARY KEY,
-  student_id UUID,
-  course_id UUID,
-  semester INT,
-  grade TEXT,
-  status TEXT,
-  attendance_rate DOUBLE,
-  enrolled_at TIMESTAMP,
-  completed_at TIMESTAMP
-);
-```
-
-### Risk Predictions Table
-```cql
-CREATE TABLE risk_predictions (
-  id UUID PRIMARY KEY,
-  student_id UUID,
-  course_id UUID,
-  risk_level TEXT,
-  confidence DOUBLE,
-  factors MAP<TEXT, DOUBLE>,
-  recommendations LIST<TEXT>,
-  predicted_grade TEXT,
-  created_at TIMESTAMP
-);
-```
+### Subjects Table (11 columns)
+- `id` (int) - Primary key
+- `programmecode`, `subjectcode`, `subjectname` - Subject details
+- `examyear`, `exammonth` - Examination period
+- `status`, `credit`, `prerequisite`, `level` - Subject properties
 
 ## Features
 
 ### 1. Authentication
-- User registration with student details
+- Student ID-based login (integer)
 - JWT-based authentication
-- Secure password hashing with BCrypt
+- Secure token management
 
 ### 2. Dashboard
-- Current GPA display
-- Completed courses count
-- Total credits earned
-- Average attendance rate
-- Course progress with risk indicators
+- Overall CGPA and CAVG display
+- Current year and semester
+- Student personal information
+- Academic performance metrics
+- Program and cohort details
 
-### 3. Risk Prediction Algorithm
-The system calculates risk levels based on:
-- **GPA Factor (35%)**: Academic performance
-- **Attendance Factor (25%)**: Class attendance rate
-- **Prerequisite Factor (20%)**: Completion of required prerequisites
-- **Difficulty Factor (20%)**: Course difficulty vs student capability
-
-Risk levels:
-- **LOW**: Risk score < 0.35
-- **MEDIUM**: Risk score 0.35 - 0.65
-- **HIGH**: Risk score > 0.65
-
-### 4. Recommendations
-Personalized recommendations based on:
-- Risk level assessment
-- Individual factor analysis
-- Study time allocation
-- Prerequisite review suggestions
+### 3. Student Data API
+- List all students with pagination
+- Get current authenticated student
+- Fetch student with their subjects
+- Health check endpoint
 
 ## API Endpoints
 
 ### Authentication
 ```
-POST   /auth/register     - Register new student
-POST   /auth/login        - Login
+POST   /auth/login        - Login with student ID
+POST   /auth/logout       - Logout
+POST   /auth/refresh      - Refresh JWT token
+GET    /auth/verify       - Verify JWT token
 POST   /auth/logout       - Logout
 GET    /auth/verify       - Verify token
 ```
@@ -290,17 +245,13 @@ npm run lint
 
 ### Backend
 
-1. Update `application.conf` with production values
-2. Set environment variables:
+1. Update `.env` with production values
+2. Install dependencies in production environment
+3. Run with production ASGI server:
    ```bash
-   export CASSANDRA_HOST=your-cassandra-host
-   export JWT_SECRET=your-production-secret
+   python run.py
+   # Or use gunicorn with gevent workers
    ```
-3. Build distribution:
-   ```bash
-   sbt dist
-   ```
-4. Deploy the generated zip file
 
 ### Frontend
 
@@ -313,34 +264,39 @@ npm run lint
 ## Troubleshooting
 
 ### Cassandra Connection Issues
-- Verify the external cluster is accessible
-- Check firewall rules for port 9042
-- Confirm datacenter name matches configuration
+- Verify cluster is accessible from your network
+- Check `.env` credentials and connection settings
+- Confirm datacenter name matches your cluster
 
-### CORS Errors
-- Ensure frontend URL is in `allowedOrigins` in `application.conf`
-- Verify CORS filter is enabled
+### Python 3.13 Compatibility
+- Ensure `run.py` applies gevent monkey patching before imports
+- asyncore module was removed in Python 3.13; gevent provides compatibility
 
 ### JWT Token Errors
-- Check JWT secret is properly configured
+- Check JWT_SECRET_KEY in `.env`
 - Verify token expiration settings
+- Frontend must send Authorization header: `Bearer <token>`
 
-## Security Considerations
+### CORS Errors
+- Frontend proxy is configured in `vite.config.ts`
+- Backend CORS is enabled in `main.py`
 
-1. **Change JWT Secret**: Use a strong, unique secret in production
-2. **HTTPS**: Always use HTTPS in production
-3. **Password Hashing**: BCrypt is used with appropriate cost factor
-4. **Input Validation**: All API inputs are validated
-5. **SQL Injection**: Using parameterized queries with Cassandra driver
+## Quick Start
+
+```bash
+# Backend
+cd backend
+.\setup.ps1
+.\start.bat
+
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Visit http://localhost:5173 and login with a student ID from the database.
 
 ## License
 
 MIT License
-
-## Contributors
-
-- Your Name / Team Name
-
-## Support
-
-For issues and questions, please create an issue in the repository.
