@@ -3,15 +3,16 @@ import { api } from '../services/api';
 
 export interface Subject {
   id: number;
-  programme_code: string;
-  subject_code: string;
-  subject_name: string;
-  subject_type: string;
-  credit: number;
-  semester: number;
-  prerequisite: any;
-  core_subject_in_programme: any;
-  level: number;
+  subjectcode?: string;
+  subjectname?: string;
+  programmecode?: string;
+  grade?: string;
+  overallpercentage?: number;
+  attendancepercentage?: number;
+  courseworkpercentage?: number;
+  status?: string;
+  examyear?: number;
+  exammonth?: number;
 }
 
 export interface Student {
@@ -44,6 +45,9 @@ export interface Student {
 export interface StudentWithSubjects {
   student: Student;
   subjects: Subject[];
+  total_subjects: number;
+  average_attendance?: number;
+  average_percentage?: number;
 }
 
 interface StudentsState {
