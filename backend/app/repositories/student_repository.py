@@ -166,7 +166,14 @@ class StudentRepository:
             return False
     
     def _map_row_to_student(self, row) -> Student:
-        """Map Cassandra row to Student model"""
+        """Map Cassandra row to Student model.
+        Note: some deployments store taken courses under column 'subject' (singular)
+        instead of 'subjects'. We gracefully fall back to either.
+        """
+        subjects_value = getattr(row, 'subjects', None)
+        if subjects_value is None:
+            subjects_value = getattr(row, 'subject', None)
+
         return Student(
             id=row.id,
             program=getattr(row, 'program', None),
@@ -183,16 +190,245 @@ class StudentRepository:
             overallcavg=getattr(row, 'overallcavg', None),
             overallcgpa=getattr(row, 'overallcgpa', None),
             programmecode=getattr(row, 'programmecode', None),
-            qualifications=getattr(row, 'qualifications', None),  # Keep as-is (complex type)
+            qualifications=getattr(row, 'qualifications', None),
             race=getattr(row, 'race', None),
             sem=getattr(row, 'sem', None),
             sponsorname=getattr(row, 'sponsorname', None),
             status=getattr(row, 'status', None),
-            subjects=getattr(row, 'subjects', None),  # Keep as-is (complex type)
+            subjects=subjects_value,
             year=getattr(row, 'year', None),
             yearonaverage=getattr(row, 'yearonaverage', None),
             yearonecgpa=getattr(row, 'yearonecgpa', None)
         )
+
+    def get_completed_subject_codes(self, student_id: int) -> List[str]:
+        """Extract completed subject codes from the student's stored subjects/subject column.
+
+        Supports multiple storage formats:
+        - List[Map]: each entry may contain keys like 'subjectcode'/'subject_code'/'code' and 'grade'/'result'/'status'
+        - JSON string representing the above
+        - Comma-separated string like "CODE:GRADE,CODE:GRADE"
+        Filters out failing/withdrawn grades: {'F','FA','W'}.
+        Returns an empty list if nothing can be parsed.
+        """
+        try:
+            student = self.find_by_id(student_id)
+            if not student:
+                return []
+
+            raw = student.subjects
+            if raw is None:
+                # Attempt direct fetch of singular column if mapping didn't catch it
+                prepared = self._get_prepared_find_by_id()
+                row = self.session.execute(prepared, (student_id,)).one()
+                if row is None:
+                    return []
+                raw = getattr(row, 'subjects', getattr(row, 'subject', None))
+
+            fail_grades = {"F", "FA", "W"}
+            codes: List[str] = []
+
+            # Case 1: already a list-like of dicts/maps
+            if isinstance(raw, list):
+                for entry in raw:
+                    try:
+                        if isinstance(entry, dict):
+                            code = entry.get('subjectcode') or entry.get('subject_code') or entry.get('code') or entry.get('subcode')
+                            grade = entry.get('grade') or entry.get('result') or entry.get('status')
+                            if code and (grade is None or str(grade).upper() not in fail_grades):
+                                codes.append(str(code))
+                        else:
+                            # Unknown element type; skip safely
+                            continue
+                    except Exception:
+                        continue
+                return codes
+
+            # Case 2: JSON string form
+            if isinstance(raw, str):
+                import json
+                text = raw.strip()
+                # Try JSON first
+                try:
+                    data = json.loads(text)
+                    if isinstance(data, list):
+                        for entry in data:
+                            if isinstance(entry, dict):
+                                code = entry.get('subjectcode') or entry.get('subject_code') or entry.get('code') or entry.get('subcode')
+                                grade = entry.get('grade') or entry.get('result') or entry.get('status')
+                                if code and (grade is None or str(grade).upper() not in fail_grades):
+                                    codes.append(str(code))
+                        return codes
+                except Exception:
+                    pass
+
+                # Fallback: parse CSV like "CODE:GRADE,CODE:GRADE" or just "CODE1,CODE2"
+                try:
+                    parts = [p.strip() for p in text.split(',') if p.strip()]
+                    for p in parts:
+                        if ':' in p:
+                            code_part, grade_part = p.split(':', 1)
+                            code = code_part.strip()
+                            grade = grade_part.strip().upper()
+                            if code and grade not in fail_grades:
+                                codes.append(code)
+                        else:
+                            # Just a code with no grade info
+                            if p:
+                                codes.append(p)
+                    return codes
+                except Exception:
+                    return []
+
+            # Unknown format
+            return []
+        except Exception as e:
+            logger.error(f"Error extracting completed subject codes: {str(e)}")
+            return []
+
+    def get_subject_entries(self, student_id: int, *, dedup: bool = True, sort_desc: bool = True) -> List[dict]:
+        """Parse the student's subjects/subject column into a normalized list of entries.
+
+        Each returned dict may contain keys:
+        - subjectcode, subjectname, grade, overallpercentage, attendancepercentage,
+          courseworkpercentage, status, examyear, exammonth
+        Unknown or missing fields are omitted.
+        Supports list-of-dicts, JSON string, or CSV formats similar to get_completed_subject_codes.
+        """
+        try:
+            student = self.find_by_id(student_id)
+            if not student:
+                return []
+
+            raw = student.subjects
+            if raw is None:
+                prepared = self._get_prepared_find_by_id()
+                row = self.session.execute(prepared, (student_id,)).one()
+                if row is None:
+                    return []
+                raw = getattr(row, 'subjects', getattr(row, 'subject', None))
+
+            entries: List[dict] = []
+
+            def normalize_entry(entry: dict) -> dict:
+                def pick(*keys):
+                    for k in keys:
+                        if k in entry and entry[k] is not None:
+                            return entry[k]
+                    return None
+
+                return {
+                    'subjectcode': pick('subjectcode', 'subject_code', 'code', 'subcode'),
+                    'subjectname': pick('subjectname', 'name', 'subject_name'),
+                    'grade': pick('grade', 'result', 'finalgrade'),
+                    'overallpercentage': pick('overallpercentage', 'overall', 'overall_percentage', 'percentage'),
+                    'attendancepercentage': pick('attendancepercentage', 'attendance', 'attendance_rate'),
+                    'courseworkpercentage': pick('courseworkpercentage', 'coursework', 'coursework_rate'),
+                    'status': pick('status', 'examstatus'),
+                    'examyear': pick('examyear', 'year'),
+                    'exammonth': pick('exammonth', 'month')
+                }
+
+            # Case 1: list of dicts
+            if isinstance(raw, list):
+                for e in raw:
+                    if isinstance(e, dict):
+                        norm = normalize_entry(e)
+                        # discard entirely empty rows
+                        if any(v is not None for v in norm.values()):
+                            entries.append(norm)
+                return self._post_process_entries(entries, dedup=dedup, sort_desc=sort_desc)
+
+            # Case 2: JSON string
+            if isinstance(raw, str):
+                import json
+                text = raw.strip()
+                # Try JSON array first
+                try:
+                    data = json.loads(text)
+                    if isinstance(data, list):
+                        for e in data:
+                            if isinstance(e, dict):
+                                norm = normalize_entry(e)
+                                if any(v is not None for v in norm.values()):
+                                    entries.append(norm)
+                        return self._post_process_entries(entries, dedup=dedup, sort_desc=sort_desc)
+                except Exception:
+                    pass
+
+                # Fallback CSV: CODE:GRADE pairs or CODE only
+                # We fabricate minimal entries from CSV tokens
+                try:
+                    parts = [p.strip() for p in text.split(',') if p.strip()]
+                    for p in parts:
+                        if ':' in p:
+                            code_part, grade_part = p.split(':', 1)
+                            entries.append({'subjectcode': code_part.strip(), 'grade': grade_part.strip()})
+                        else:
+                            entries.append({'subjectcode': p})
+                    return self._post_process_entries(entries, dedup=dedup, sort_desc=sort_desc)
+                except Exception:
+                    return []
+
+            return []
+        except Exception as e:
+            logger.error(f"Error parsing subjects column: {str(e)}")
+            return []
+
+    def _post_process_entries(self, entries: List[dict], *, dedup: bool, sort_desc: bool) -> List[dict]:
+        """Optionally de-duplicate by subjectcode and sort by exam year/month.
+        - dedup: keep the latest attempt per subjectcode based on (examyear, exammonth)
+        - sort_desc: sort by (examyear, exammonth) descending
+        """
+        if not entries:
+            return []
+
+        processed = list(entries)
+
+        if dedup:
+            best_by_code: dict[str, dict] = {}
+            for e in processed:
+                code = e.get('subjectcode')
+                if not code:
+                    # Keep entries without code as-is
+                    continue
+                def ym(entry):
+                    y = entry.get('examyear') or 0
+                    m = entry.get('exammonth') or 0
+                    try:
+                        y = int(y)
+                    except Exception:
+                        y = 0
+                    try:
+                        m = int(m)
+                    except Exception:
+                        m = 0
+                    return (y, m)
+
+                cur_best = best_by_code.get(code)
+                if cur_best is None or ym(e) >= ym(cur_best):
+                    best_by_code[code] = e
+
+            # Include non-coded entries too
+            no_code = [e for e in processed if not e.get('subjectcode')]
+            processed = list(best_by_code.values()) + no_code
+
+        if sort_desc:
+            def sort_key(e):
+                y = e.get('examyear') or 0
+                m = e.get('exammonth') or 0
+                try:
+                    y = int(y)
+                except Exception:
+                    y = 0
+                try:
+                    m = int(m)
+                except Exception:
+                    m = 0
+                return (y, m)
+            processed.sort(key=sort_key, reverse=True)
+
+        return processed
 
 
 # Singleton instance

@@ -31,11 +31,19 @@ import {
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
+import { listVariants, computeProgress, whatIf, getElectives, VariantsResponse, ProgressResponse, WhatIfResponse, getStudentProgress } from '../../services/catalogue';
 
 const Dashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentStudent, studentWithSubjects, loading, error } = useSelector((state: RootState) => state.students);
   const [tabValue, setTabValue] = useState(0);
+  // Planner state
+  const [variants, setVariants] = useState<string[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState<string>('202301-normal');
+  const [progress, setProgress] = useState<ProgressResponse | null>(null);
+  const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
+  const [plannerLoading, setPlannerLoading] = useState(false);
+  const [plannerError, setPlannerError] = useState<string | null>(null);
 
   useEffect(() => {
     // Only fetch if we don't already have student data from login
@@ -49,7 +57,80 @@ const Dashboard: React.FC = () => {
     if (tabValue === 1 && currentStudent && !studentWithSubjects) {
       dispatch(fetchStudentWithSubjects(currentStudent.id));
     }
+    // Load planner data when switching to Planner tab
+    if (tabValue === 2) {
+      (async () => {
+        try {
+          setPlannerError(null);
+          setPlannerLoading(true);
+          const v: VariantsResponse = await listVariants();
+          setVariants(v.variants);
+          const key = selectedVariant && v.variants.includes(selectedVariant) ? selectedVariant : v.variants[0];
+          setSelectedVariant(key);
+          const intake = key.split('-')[0];
+          const entry = key.split('-')[1];
+          // Ensure we have subjects available for what-if derivation
+          if (currentStudent && !studentWithSubjects) {
+            dispatch(fetchStudentWithSubjects(currentStudent.id));
+          }
+          // Use server-side student progress
+          const prog = await getStudentProgress(intake, entry);
+          setProgress(prog);
+          const wi = await whatIf({
+            intake,
+            entry_type: entry,
+            planned_codes: ['PRG1203','SEG1201','NET1014'],
+            completed_codes: (studentWithSubjects?.subjects || [])
+              .filter(s => s.grade && !['F','FA','W'].includes(String(s.grade).toUpperCase()))
+              .map(s => s.subjectcode || '')
+              .filter(Boolean),
+            cgpa: currentStudent?.overallcgpa ?? 3.0,
+            attendance: 90,
+            gpa_trend: 0.0,
+          });
+          setWhatIfResult(wi);
+        } catch (e: any) {
+          setPlannerError(e?.message || 'Failed to load planner');
+        } finally {
+          setPlannerLoading(false);
+        }
+      })();
+    }
   }, [tabValue, currentStudent, studentWithSubjects, dispatch]);
+
+  // Recompute planner data on variant change while Planner is active
+  useEffect(() => {
+    if (tabValue !== 2) return;
+    (async () => {
+      try {
+        setPlannerError(null);
+        setPlannerLoading(true);
+        const key = selectedVariant;
+        if (!key) return;
+        const intake = key.split('-')[0];
+        const entry = key.split('-')[1];
+        const prog = await getStudentProgress(intake, entry);
+        setProgress(prog);
+        const wi = await whatIf({
+          intake,
+          entry_type: entry,
+          planned_codes: ['PRG1203','SEG1201','NET1014'],
+          completed_codes: (studentWithSubjects?.subjects || [])
+            .filter(s => s.grade && !['F','FA','W'].includes(String(s.grade).toUpperCase()))
+            .map(s => s.subjectcode || '')
+            .filter(Boolean),
+          cgpa: currentStudent?.overallcgpa ?? 3.0,
+          attendance: 90,
+          gpa_trend: 0.0,
+        });
+        setWhatIfResult(wi);
+      } catch (e: any) {
+        setPlannerError(e?.message || 'Failed to compute planner');
+      } finally {
+        setPlannerLoading(false);
+      }
+    })();
+  }, [selectedVariant, tabValue]);
 
   if (loading && !currentStudent) {
     return (
@@ -115,6 +196,7 @@ const Dashboard: React.FC = () => {
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Overview" icon={<School />} iconPosition="start" />
           <Tab label="Courses" icon={<BookOutlined />} iconPosition="start" />
+          <Tab label="Planner" icon={<TrendingUp />} iconPosition="start" />
         </Tabs>
       </Box>
 
@@ -521,6 +603,133 @@ const Dashboard: React.FC = () => {
                   </TableContainer>
                 </CardContent>
               </Card>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Planner Tab */}
+      {tabValue === 2 && (
+        <>
+          {plannerLoading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+              <CircularProgress />
+            </Box>
+          ) : plannerError ? (
+            <Alert severity="error">{plannerError}</Alert>
+          ) : (
+            <>
+              <Grid container spacing={3} mb={3}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Programme Variants
+                      </Typography>
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">Select a variant:</Typography>
+                        <select
+                          value={selectedVariant}
+                          onChange={(e) => setSelectedVariant(e.target.value)}
+                          style={{ padding: '8px', marginTop: '8px', width: '100%' }}
+                        >
+                          {variants.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Progress Summary
+                      </Typography>
+                      {progress ? (
+                        <Box>
+                          <Typography>Completed Credits: {progress.completed_credits}</Typography>
+                          <Typography>Total Credits: {progress.total_credits}</Typography>
+                          <Typography>Percent Complete: {progress.percent_complete}%</Typography>
+                          <Box mt={1}>
+                            <LinearProgress variant="determinate" value={progress.percent_complete} />
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography color="text.secondary">No progress data</Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Outstanding Requirements
+                      </Typography>
+                      {progress ? (
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">Core Remaining ({progress.core_remaining.length})</Typography>
+                          <Box sx={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #eee', p: 1, borderRadius: 1 }}>
+                            {progress.core_remaining.map((c) => (
+                              <Chip key={c} label={c} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                            ))}
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" mt={2}>Discipline Elective Slots</Typography>
+                          <Box>
+                            {progress.discipline_elective_placeholders_remaining.map((c) => (
+                              <Chip key={c} label={c} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                            ))}
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" mt={2}>Free Elective Slots</Typography>
+                          <Box>
+                            {progress.free_elective_placeholders_remaining.map((c) => (
+                              <Chip key={c} label={c} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                            ))}
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" mt={2}>Either-Subject Pairs</Typography>
+                          <Box>
+                            {progress.either_pairs_remaining.map((pair, idx) => (
+                              <Chip key={idx} label={`${pair[0]} / ${pair[1]}`} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                            ))}
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography color="text.secondary">No outstanding data</Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        What-If Risk (Sample Plan)
+                      </Typography>
+                      {whatIfResult ? (
+                        <Box>
+                          <Typography>Total Credits: {whatIfResult.total_credits}</Typography>
+                          <Typography>Aggregate Risk: {whatIfResult.risk_band} ({whatIfResult.aggregated_risk_score})</Typography>
+                          <Box mt={1}>
+                            {whatIfResult.per_course.map((c) => (
+                              <Box key={c.subject_code} display="flex" alignItems="center" justifyContent="space-between" py={0.5}>
+                                <Typography>{c.subject_code} - {c.subject_name}</Typography>
+                                <Chip label={c.predicted_risk} color={c.predicted_risk === 'low' ? 'success' : c.predicted_risk === 'medium' ? 'warning' : 'error'} size="small" />
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography color="text.secondary">No what-if data</Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
             </>
           )}
         </>

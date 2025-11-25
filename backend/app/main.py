@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import sys
 from app.config import settings
-from app.routes import auth, student_stats, health
+from app.routes import auth, student_stats, health, catalogue
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(student_stats.router)
 app.include_router(health.router)
+app.include_router(catalogue.router)
 
 
 @app.on_event("startup")
@@ -52,8 +53,11 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info("Shutting down application")
-    from app.services.cassandra_service import cassandra_service
-    cassandra_service.close()
+    try:
+        from app.services.cassandra_service import cassandra_service
+        cassandra_service.close()
+    except Exception as e:
+        logger.warning(f"Could not close Cassandra connection: {e}")
 
 
 @app.get("/")
