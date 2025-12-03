@@ -2,6 +2,7 @@ from cassandra.cluster import Cluster, Session, EXEC_PROFILE_DEFAULT, ExecutionP
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.query import SimpleStatement
 from cassandra.policies import DCAwareRoundRobinPolicy
+from cassandra.io.geventreactor import GeventConnection
 import logging
 from typing import Optional
 from app.config import settings
@@ -45,7 +46,7 @@ class CassandraService:
                 request_timeout=10
             )
             
-            # Create cluster connection with asyncio event loop (Python 3.13 compatible)
+            # Create cluster connection with gevent event loop (Python 3.12+ compatible)
             self._cluster = Cluster(
                 contact_points=[settings.CASSANDRA_HOST],
                 port=settings.CASSANDRA_PORT,
@@ -53,7 +54,8 @@ class CassandraService:
                 protocol_version=4,
                 connect_timeout=10,
                 control_connection_timeout=10,
-                execution_profiles={EXEC_PROFILE_DEFAULT: profile}
+                execution_profiles={EXEC_PROFILE_DEFAULT: profile},
+                connection_class=GeventConnection
             )
             
             # Connect and get session

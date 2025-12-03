@@ -20,6 +20,9 @@ import {
   TableContainer,
   Paper,
   LinearProgress,
+  Tooltip,
+  Collapse,
+  IconButton,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -28,10 +31,17 @@ import {
   CheckCircle,
   CalendarToday,
   BookOutlined,
+  Analytics,
+  ExpandMore,
+  ExpandLess,
+  Warning,
+  Info,
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
-import { listVariants, computeProgress, whatIf, getElectives, VariantsResponse, ProgressResponse, WhatIfResponse, getStudentProgress } from '../../services/catalogue';
+import { listVariants, whatIf, VariantsResponse, ProgressResponse, WhatIfResponse, getStudentProgress } from '../../services/catalogue';
+import { getStudentAnalytics, StudentProfile } from '../../services/analytics';
+import { getMultipleSubjectPredictions, StudentPredictionReport, SubjectPrediction, getRiskColor, getRiskEmoji, formatProbability } from '../../services/predictions';
 
 const Dashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -44,6 +54,14 @@ const Dashboard: React.FC = () => {
   const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerError, setPlannerError] = useState<string | null>(null);
+  // Analytics state
+  const [analyticsData, setAnalyticsData] = useState<StudentProfile | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  // Predictions state
+  const [predictions, setPredictions] = useState<StudentPredictionReport | null>(null);
+  const [predictionsLoading, setPredictionsLoading] = useState(false);
+  const [expandedPrediction, setExpandedPrediction] = useState<string | null>(null);
 
   useEffect(() => {
     // Only fetch if we don't already have student data from login
@@ -58,25 +76,32 @@ const Dashboard: React.FC = () => {
       dispatch(fetchStudentWithSubjects(currentStudent.id));
     }
     // Load planner data when switching to Planner tab
-    if (tabValue === 2) {
+    if (tabValue === 2 && !progress) {
       (async () => {
         try {
           setPlannerError(null);
           setPlannerLoading(true);
-          const v: VariantsResponse = await listVariants();
-          setVariants(v.variants);
-          const key = selectedVariant && v.variants.includes(selectedVariant) ? selectedVariant : v.variants[0];
-          setSelectedVariant(key);
-          const intake = key.split('-')[0];
-          const entry = key.split('-')[1];
+          
           // Ensure we have subjects available for what-if derivation
           if (currentStudent && !studentWithSubjects) {
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
-          // Use server-side student progress
-          const prog = await getStudentProgress(intake, entry);
+          
+          // Fetch variants and progress in parallel
+          const [v, prog] = await Promise.all([
+            listVariants(),
+            getStudentProgress(selectedVariant.split('-')[0] || '202301', selectedVariant.split('-')[1] || 'normal')
+          ]);
+          
+          setVariants(v.variants);
+          const key = selectedVariant && v.variants.includes(selectedVariant) ? selectedVariant : v.variants[0];
+          setSelectedVariant(key);
           setProgress(prog);
-          const wi = await whatIf({
+          
+          // Fetch what-if in background (don't block UI)
+          const intake = key.split('-')[0];
+          const entry = key.split('-')[1];
+          whatIf({
             intake,
             entry_type: entry,
             planned_codes: ['PRG1203','SEG1201','NET1014'],
@@ -87,8 +112,8 @@ const Dashboard: React.FC = () => {
             cgpa: currentStudent?.overallcgpa ?? 3.0,
             attendance: 90,
             gpa_trend: 0.0,
-          });
-          setWhatIfResult(wi);
+          }).then(setWhatIfResult).catch(console.error);
+          
         } catch (e: any) {
           setPlannerError(e?.message || 'Failed to load planner');
         } finally {
@@ -96,41 +121,85 @@ const Dashboard: React.FC = () => {
         }
       })();
     }
-  }, [tabValue, currentStudent, studentWithSubjects, dispatch]);
+  }, [tabValue, currentStudent, studentWithSubjects, dispatch, progress]);
 
   // Recompute planner data on variant change while Planner is active
   useEffect(() => {
-    if (tabValue !== 2) return;
+    if (tabValue !== 2 || !progress) return;
+    // Only re-fetch if variant actually changed and we have initial data
+    const intake = selectedVariant.split('-')[0];
+    const entry = selectedVariant.split('-')[1];
+    if (!intake || !entry) return;
+    
     (async () => {
       try {
-        setPlannerError(null);
         setPlannerLoading(true);
-        const key = selectedVariant;
-        if (!key) return;
-        const intake = key.split('-')[0];
-        const entry = key.split('-')[1];
-        const prog = await getStudentProgress(intake, entry);
+        // Fetch progress and what-if in parallel
+        const [prog, wi] = await Promise.all([
+          getStudentProgress(intake, entry),
+          whatIf({
+            intake,
+            entry_type: entry,
+            planned_codes: ['PRG1203','SEG1201','NET1014'],
+            completed_codes: (studentWithSubjects?.subjects || [])
+              .filter(s => s.grade && !['F','FA','W'].includes(String(s.grade).toUpperCase()))
+              .map(s => s.subjectcode || '')
+              .filter(Boolean),
+            cgpa: currentStudent?.overallcgpa ?? 3.0,
+            attendance: 90,
+            gpa_trend: 0.0,
+          })
+        ]);
         setProgress(prog);
-        const wi = await whatIf({
-          intake,
-          entry_type: entry,
-          planned_codes: ['PRG1203','SEG1201','NET1014'],
-          completed_codes: (studentWithSubjects?.subjects || [])
-            .filter(s => s.grade && !['F','FA','W'].includes(String(s.grade).toUpperCase()))
-            .map(s => s.subjectcode || '')
-            .filter(Boolean),
-          cgpa: currentStudent?.overallcgpa ?? 3.0,
-          attendance: 90,
-          gpa_trend: 0.0,
-        });
         setWhatIfResult(wi);
+        // Reset predictions when variant changes so they reload
+        setPredictions(null);
       } catch (e: any) {
         setPlannerError(e?.message || 'Failed to compute planner');
       } finally {
         setPlannerLoading(false);
       }
     })();
-  }, [selectedVariant, tabValue]);
+  }, [selectedVariant]);
+
+  // Load subject predictions when planner tab is active and we have progress data
+  useEffect(() => {
+    if (tabValue === 2 && currentStudent && progress && !predictions && !predictionsLoading) {
+      (async () => {
+        try {
+          setPredictionsLoading(true);
+          // Get predictions for remaining core subjects
+          const subjectCodes = progress.core_remaining.slice(0, 10); // Limit to 10 for performance
+          if (subjectCodes.length > 0) {
+            const report = await getMultipleSubjectPredictions(currentStudent.id, subjectCodes);
+            setPredictions(report);
+          }
+        } catch (e: any) {
+          console.error('Failed to load predictions:', e);
+        } finally {
+          setPredictionsLoading(false);
+        }
+      })();
+    }
+  }, [tabValue, currentStudent, progress, predictions, predictionsLoading]);
+
+  // Load analytics data when switching to Analytics tab
+  useEffect(() => {
+    if (tabValue === 3 && currentStudent && !analyticsData) {
+      (async () => {
+        try {
+          setAnalyticsLoading(true);
+          setAnalyticsError(null);
+          const data = await getStudentAnalytics(currentStudent.id);
+          setAnalyticsData(data);
+        } catch (e: any) {
+          setAnalyticsError(e?.message || 'Failed to load analytics');
+        } finally {
+          setAnalyticsLoading(false);
+        }
+      })();
+    }
+  }, [tabValue, currentStudent, analyticsData]);
 
   if (loading && !currentStudent) {
     return (
@@ -197,6 +266,7 @@ const Dashboard: React.FC = () => {
           <Tab label="Overview" icon={<School />} iconPosition="start" />
           <Tab label="Courses" icon={<BookOutlined />} iconPosition="start" />
           <Tab label="Planner" icon={<TrendingUp />} iconPosition="start" />
+          <Tab label="Analytics" icon={<Analytics />} iconPosition="start" />
         </Tabs>
       </Box>
 
@@ -730,7 +800,402 @@ const Dashboard: React.FC = () => {
                   </Card>
                 </Grid>
               </Grid>
+
+              {/* Subject Success Predictions */}
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Box display="flex" alignItems="center" gap={1} mb={2}>
+                    <Warning color="warning" />
+                    <Typography variant="h6">
+                      Subject Success Predictions
+                    </Typography>
+                    <Tooltip title="Predictions based on your performance in prerequisite subjects">
+                      <Info fontSize="small" color="action" />
+                    </Tooltip>
+                  </Box>
+                  
+                  {predictionsLoading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : predictions && predictions.predictions.length > 0 ? (
+                    <>
+                      {predictions.high_risk_subjects.length > 0 && (
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                          <strong>Attention needed:</strong> {predictions.high_risk_subjects.length} subject(s) may be challenging based on your prerequisite performance.
+                        </Alert>
+                      )}
+                      
+                      <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Subject</TableCell>
+                              <TableCell align="center">Risk Level</TableCell>
+                              <TableCell align="center">Success Probability</TableCell>
+                              <TableCell align="center">Prereq GPA</TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {predictions.predictions.map((pred: SubjectPrediction) => (
+                              <React.Fragment key={pred.subject_code}>
+                                <TableRow 
+                                  sx={{ 
+                                    '&:hover': { bgcolor: 'action.hover' },
+                                    cursor: 'pointer',
+                                    bgcolor: pred.risk_level === 'high' || pred.risk_level === 'very_high' 
+                                      ? 'error.lighter' 
+                                      : undefined
+                                  }}
+                                  onClick={() => setExpandedPrediction(
+                                    expandedPrediction === pred.subject_code ? null : pred.subject_code
+                                  )}
+                                >
+                                  <TableCell>
+                                    <Box>
+                                      <Typography variant="body2" fontWeight="medium">
+                                        {pred.subject_code}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {pred.subject_name}
+                                      </Typography>
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Chip 
+                                      label={`${getRiskEmoji(pred.risk_level)} ${pred.risk_level.replace('_', ' ')}`}
+                                      color={getRiskColor(pred.risk_level)}
+                                      size="small"
+                                    />
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography 
+                                      fontWeight="bold"
+                                      color={pred.predicted_success_probability >= 0.8 ? 'success.main' : 
+                                             pred.predicted_success_probability >= 0.6 ? 'warning.main' : 'error.main'}
+                                    >
+                                      {formatProbability(pred.predicted_success_probability)}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography variant="body2">
+                                      {pred.weighted_prereq_gpa > 0 ? pred.weighted_prereq_gpa.toFixed(2) : 'N/A'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <IconButton size="small">
+                                      {expandedPrediction === pred.subject_code ? <ExpandLess /> : <ExpandMore />}
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell colSpan={5} sx={{ py: 0, borderBottom: 'none' }}>
+                                    <Collapse in={expandedPrediction === pred.subject_code} timeout="auto" unmountOnExit>
+                                      <Box sx={{ py: 2, px: 1, bgcolor: 'grey.50', borderRadius: 1, my: 1 }}>
+                                        <Typography variant="body2" paragraph>
+                                          {pred.recommendation}
+                                        </Typography>
+                                        
+                                        {pred.prereq_performance.length > 0 && (
+                                          <Box mb={2}>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                              Prerequisite Performance:
+                                            </Typography>
+                                            <Box display="flex" flexWrap="wrap" gap={1} mt={0.5}>
+                                              {pred.prereq_performance.map((p) => (
+                                                <Chip
+                                                  key={p.subject_code}
+                                                  label={`${p.subject_code}: ${p.grade}`}
+                                                  size="small"
+                                                  color={p.grade_points >= 3.0 ? 'success' : 
+                                                         p.grade_points >= 2.0 ? 'warning' : 'error'}
+                                                  variant="outlined"
+                                                />
+                                              ))}
+                                            </Box>
+                                          </Box>
+                                        )}
+                                        
+                                        {pred.missing_prereqs.length > 0 && (
+                                          <Box>
+                                            <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                              Missing Prerequisites:
+                                            </Typography>
+                                            <Box display="flex" flexWrap="wrap" gap={1} mt={0.5}>
+                                              {pred.missing_prereqs.map((code) => (
+                                                <Chip
+                                                  key={code}
+                                                  label={code}
+                                                  size="small"
+                                                  color="default"
+                                                  variant="outlined"
+                                                />
+                                              ))}
+                                            </Box>
+                                          </Box>
+                                        )}
+                                        
+                                        {pred.cohort_pass_rate !== null && (
+                                          <Box mt={2}>
+                                            <Typography variant="caption" color="text.secondary">
+                                              Cohort pass rate: {(pred.cohort_pass_rate * 100).toFixed(0)}% | 
+                                              Avg score: {pred.cohort_avg_score?.toFixed(1) || 'N/A'}%
+                                            </Typography>
+                                          </Box>
+                                        )}
+                                      </Box>
+                                    </Collapse>
+                                  </TableCell>
+                                </TableRow>
+                              </React.Fragment>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                      
+                      {predictions.recommended_order.length > 0 && (
+                        <Box mt={2}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Recommended order</strong> (lower risk first):
+                          </Typography>
+                          <Box display="flex" flexWrap="wrap" gap={0.5}>
+                            {predictions.recommended_order.map((code, idx) => (
+                              <Chip 
+                                key={code} 
+                                label={`${idx + 1}. ${code}`} 
+                                size="small" 
+                                variant="outlined"
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                    </>
+                  ) : (
+                    <Typography color="text.secondary">
+                      No prediction data available. Complete some prerequisite subjects first.
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
             </>
+          )}
+        </>
+      )}
+
+      {/* Analytics Tab */}
+      {tabValue === 3 && (
+        <>
+          {analyticsLoading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : analyticsError ? (
+            <Alert severity="error">{analyticsError}</Alert>
+          ) : analyticsData ? (
+            <>
+              {/* Key Metrics */}
+              <Grid container spacing={3} mb={4}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" variant="body2" gutterBottom>
+                        Current GPA
+                      </Typography>
+                      <Typography variant="h4">
+                        {analyticsData.current_gpa?.toFixed(2) || 'N/A'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        out of 4.0
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" variant="body2" gutterBottom>
+                        Average Score
+                      </Typography>
+                      <Typography variant="h4">
+                        {analyticsData.avg_score?.toFixed(1) || 'N/A'}%
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ± {analyticsData.score_std?.toFixed(1) || '0'} std dev
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" variant="body2" gutterBottom>
+                        Subjects Taken
+                      </Typography>
+                      <Typography variant="h4">
+                        {analyticsData.subjects_taken}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        across {analyticsData.terms_taken} terms
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" variant="body2" gutterBottom>
+                        Score Trend
+                      </Typography>
+                      <Typography variant="h4" color={analyticsData.score_trend_per_term && analyticsData.score_trend_per_term > 0 ? 'success.main' : analyticsData.score_trend_per_term && analyticsData.score_trend_per_term < 0 ? 'error.main' : 'text.primary'}>
+                        {analyticsData.score_trend_per_term ? (analyticsData.score_trend_per_term > 0 ? '+' : '') + analyticsData.score_trend_per_term.toFixed(1) : 'N/A'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        % per term
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Best/Worst Subjects & Benchmark */}
+              <Grid container spacing={3} mb={4}>
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ height: '100%', borderLeft: 4, borderColor: 'success.main' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="success.main">
+                        Best Subject
+                      </Typography>
+                      {analyticsData.best_subject ? (
+                        <>
+                          <Typography variant="body1" fontWeight="bold">
+                            {analyticsData.best_subject.subjectname}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {analyticsData.best_subject.subjectcode}
+                          </Typography>
+                          <Typography variant="h5" mt={1}>
+                            {analyticsData.best_subject.overallpercentage?.toFixed(1)}%
+                          </Typography>
+                        </>
+                      ) : (
+                        <Typography color="text.secondary">No data</Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ height: '100%', borderLeft: 4, borderColor: 'error.main' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="error.main">
+                        Needs Improvement
+                      </Typography>
+                      {analyticsData.worst_subject ? (
+                        <>
+                          <Typography variant="body1" fontWeight="bold">
+                            {analyticsData.worst_subject.subjectname}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {analyticsData.worst_subject.subjectcode}
+                          </Typography>
+                          <Typography variant="h5" mt={1}>
+                            {analyticsData.worst_subject.overallpercentage?.toFixed(1)}%
+                          </Typography>
+                        </>
+                      ) : (
+                        <Typography color="text.secondary">No data</Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ height: '100%' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Performance Summary
+                      </Typography>
+                      <Table size="small">
+                        <TableBody>
+                          <TableRow>
+                            <TableCell>Benchmark Delta</TableCell>
+                            <TableCell align="right">
+                              <Chip 
+                                label={analyticsData.avg_benchmark_delta ? (analyticsData.avg_benchmark_delta > 0 ? '+' : '') + analyticsData.avg_benchmark_delta.toFixed(1) + '%' : 'N/A'} 
+                                color={analyticsData.avg_benchmark_delta && analyticsData.avg_benchmark_delta > 0 ? 'success' : analyticsData.avg_benchmark_delta && analyticsData.avg_benchmark_delta < 0 ? 'error' : 'default'}
+                                size="small"
+                              />
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell>Failed Subjects</TableCell>
+                            <TableCell align="right">
+                              <Chip label={analyticsData.fails_count} color={analyticsData.fails_count > 0 ? 'error' : 'success'} size="small" />
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell>Retakes</TableCell>
+                            <TableCell align="right">
+                              <Chip label={analyticsData.retakes_count} color={analyticsData.retakes_count > 0 ? 'warning' : 'default'} size="small" />
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Term Performance Timeline */}
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Performance by Term
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Term</TableCell>
+                          <TableCell align="right">Avg Score</TableCell>
+                          <TableCell align="right">Exams</TableCell>
+                          <TableCell align="right">Pass Rate</TableCell>
+                          <TableCell>Progress</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {analyticsData.term_stats.map((term) => (
+                          <TableRow key={term.term}>
+                            <TableCell>{term.term}</TableCell>
+                            <TableCell align="right">
+                              {term.avg_percentage?.toFixed(1) || 'N/A'}%
+                            </TableCell>
+                            <TableCell align="right">{term.total_exams}</TableCell>
+                            <TableCell align="right">
+                              <Chip 
+                                label={`${term.pass_rate?.toFixed(0) || 0}%`} 
+                                color={term.pass_rate && term.pass_rate >= 80 ? 'success' : term.pass_rate && term.pass_rate >= 50 ? 'warning' : 'error'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell sx={{ width: '30%' }}>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={term.avg_percentage || 0}
+                                color={term.avg_percentage && term.avg_percentage >= 60 ? 'success' : term.avg_percentage && term.avg_percentage >= 40 ? 'warning' : 'error'}
+                                sx={{ height: 8, borderRadius: 4 }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <Alert severity="info">No analytics data available</Alert>
           )}
         </>
       )}

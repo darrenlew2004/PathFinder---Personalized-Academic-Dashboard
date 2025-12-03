@@ -1,5 +1,5 @@
 import csv
-import re
+import re 
 import json
 
 def parse_subject_string(subject_str):

@@ -4,6 +4,8 @@ import logging
 import sys
 from app.config import settings
 from app.routes import auth, student_stats, health, catalogue
+from app.routes import student_analytics
+from app.routes import subject_prediction
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +42,8 @@ app.include_router(auth.router)
 app.include_router(student_stats.router)
 app.include_router(health.router)
 app.include_router(catalogue.router)
+app.include_router(student_analytics.router)
+app.include_router(subject_prediction.router)
 
 
 @app.on_event("startup")

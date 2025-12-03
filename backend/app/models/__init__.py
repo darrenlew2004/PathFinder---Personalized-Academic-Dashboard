@@ -112,6 +112,37 @@ class StudentWithSubjects(BaseModel):
     average_attendance: Optional[float] = None
 
 
+# ==================== ANALYTICS MODELS ====================
+
+class SubjectBrief(BaseModel):
+    subjectcode: Optional[str] = None
+    subjectname: Optional[str] = None
+    overallpercentage: Optional[float] = None
+
+
+class StudentTermStat(BaseModel):
+    term: str
+    avg_percentage: Optional[float] = None
+    total_exams: int = 0
+    pass_rate: Optional[float] = None
+
+
+class StudentProfile(BaseModel):
+    student_id: int
+    subjects_taken: int
+    terms_taken: int
+    current_gpa: Optional[float] = None
+    avg_score: Optional[float] = None
+    score_std: Optional[float] = None
+    best_subject: Optional[SubjectBrief] = None
+    worst_subject: Optional[SubjectBrief] = None
+    avg_benchmark_delta: Optional[float] = None
+    fails_count: int = 0
+    retakes_count: int = 0
+    score_trend_per_term: Optional[float] = None
+    term_stats: List[StudentTermStat] = []
+
+
 # ==================== AUTH MODELS ====================
 
 class LoginRequest(BaseModel):
