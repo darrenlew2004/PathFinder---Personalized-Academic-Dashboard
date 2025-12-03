@@ -38,7 +38,11 @@ async def list_students(limit: int = 10):
             sem=s.sem,
             status=s.status,
             graduated=s.graduated,
-            cohort=s.cohort
+            cohort=s.cohort,
+            gender=s.gender,
+            race=s.race,
+            country=s.country,
+            yearonecgpa=s.yearonecgpa
         ) for s in students
     ]
 
@@ -79,7 +83,11 @@ async def get_current_student(claims: dict = Depends(get_current_user)):
         sem=student.sem,
         status=student.status,
         graduated=student.graduated,
-        cohort=student.cohort
+        cohort=student.cohort,
+        gender=student.gender,
+        race=student.race,
+        country=student.country,
+        yearonecgpa=student.yearonecgpa
     )
 
 

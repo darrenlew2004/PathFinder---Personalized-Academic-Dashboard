@@ -65,6 +65,10 @@ class StudentResponse(BaseModel):
     status: Optional[str] = None
     graduated: Optional[bool] = None
     cohort: Optional[str] = None
+    gender: Optional[str] = None
+    race: Optional[str] = None
+    country: Optional[str] = None
+    yearonecgpa: Optional[float] = None
 
 
 # ==================== SUBJECT MODELS ====================

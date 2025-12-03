@@ -39,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
-import { listVariants, whatIf, VariantsResponse, ProgressResponse, WhatIfResponse, getStudentProgress } from '../../services/catalogue';
+import { ProgressResponse, getStudentProgress } from '../../services/catalogue';
 import { getStudentAnalytics, StudentProfile } from '../../services/analytics';
 import { getMultipleSubjectPredictions, StudentPredictionReport, SubjectPrediction, getRiskColor, getRiskEmoji, formatProbability } from '../../services/predictions';
 
@@ -48,10 +48,8 @@ const Dashboard: React.FC = () => {
   const { currentStudent, studentWithSubjects, loading, error } = useSelector((state: RootState) => state.students);
   const [tabValue, setTabValue] = useState(0);
   // Planner state
-  const [variants, setVariants] = useState<string[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState<string>('202301-normal');
+  const [selectedVariant] = useState<string>('202301-normal');
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
-  const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerError, setPlannerError] = useState<string | null>(null);
   // Analytics state
@@ -82,37 +80,17 @@ const Dashboard: React.FC = () => {
           setPlannerError(null);
           setPlannerLoading(true);
           
-          // Ensure we have subjects available for what-if derivation
+          // Ensure we have subjects available
           if (currentStudent && !studentWithSubjects) {
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
           
-          // Fetch variants and progress in parallel
-          const [v, prog] = await Promise.all([
-            listVariants(),
-            getStudentProgress(selectedVariant.split('-')[0] || '202301', selectedVariant.split('-')[1] || 'normal')
-          ]);
-          
-          setVariants(v.variants);
-          const key = selectedVariant && v.variants.includes(selectedVariant) ? selectedVariant : v.variants[0];
-          setSelectedVariant(key);
+          // Fetch progress
+          const prog = await getStudentProgress(
+            selectedVariant.split('-')[0] || '202301', 
+            selectedVariant.split('-')[1] || 'normal'
+          );
           setProgress(prog);
-          
-          // Fetch what-if in background (don't block UI)
-          const intake = key.split('-')[0];
-          const entry = key.split('-')[1];
-          whatIf({
-            intake,
-            entry_type: entry,
-            planned_codes: ['PRG1203','SEG1201','NET1014'],
-            completed_codes: (studentWithSubjects?.subjects || [])
-              .filter(s => s.grade && !['F','FA','W'].includes(String(s.grade).toUpperCase()))
-              .map(s => s.subjectcode || '')
-              .filter(Boolean),
-            cgpa: currentStudent?.overallcgpa ?? 3.0,
-            attendance: 90,
-            gpa_trend: 0.0,
-          }).then(setWhatIfResult).catch(console.error);
           
         } catch (e: any) {
           setPlannerError(e?.message || 'Failed to load planner');
@@ -121,46 +99,7 @@ const Dashboard: React.FC = () => {
         }
       })();
     }
-  }, [tabValue, currentStudent, studentWithSubjects, dispatch, progress]);
-
-  // Recompute planner data on variant change while Planner is active
-  useEffect(() => {
-    if (tabValue !== 2 || !progress) return;
-    // Only re-fetch if variant actually changed and we have initial data
-    const intake = selectedVariant.split('-')[0];
-    const entry = selectedVariant.split('-')[1];
-    if (!intake || !entry) return;
-    
-    (async () => {
-      try {
-        setPlannerLoading(true);
-        // Fetch progress and what-if in parallel
-        const [prog, wi] = await Promise.all([
-          getStudentProgress(intake, entry),
-          whatIf({
-            intake,
-            entry_type: entry,
-            planned_codes: ['PRG1203','SEG1201','NET1014'],
-            completed_codes: (studentWithSubjects?.subjects || [])
-              .filter(s => s.grade && !['F','FA','W'].includes(String(s.grade).toUpperCase()))
-              .map(s => s.subjectcode || '')
-              .filter(Boolean),
-            cgpa: currentStudent?.overallcgpa ?? 3.0,
-            attendance: 90,
-            gpa_trend: 0.0,
-          })
-        ]);
-        setProgress(prog);
-        setWhatIfResult(wi);
-        // Reset predictions when variant changes so they reload
-        setPredictions(null);
-      } catch (e: any) {
-        setPlannerError(e?.message || 'Failed to compute planner');
-      } finally {
-        setPlannerLoading(false);
-      }
-    })();
-  }, [selectedVariant]);
+  }, [tabValue, currentStudent, studentWithSubjects, dispatch, progress, selectedVariant]);
 
   // Load subject predictions when planner tab is active and we have progress data
   useEffect(() => {
@@ -498,25 +437,7 @@ const Dashboard: React.FC = () => {
             <>
               {/* Course Statistics Summary */}
               <Grid container spacing={3} mb={4}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card>
-                    <CardContent>
-                      <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                          <Typography color="text.secondary" gutterBottom variant="body2">
-                            Total Courses
-                          </Typography>
-                          <Typography variant="h4">
-                            {studentWithSubjects.total_subjects}
-                          </Typography>
-                        </Box>
-                        <BookOutlined color="primary" sx={{ fontSize: 40 }} />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6}>
                   <Card>
                     <CardContent>
                       <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -534,68 +455,48 @@ const Dashboard: React.FC = () => {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6}>
                   <Card>
                     <CardContent>
                       <Box display="flex" alignItems="center" justifyContent="space-between">
                         <Box>
                           <Typography color="text.secondary" gutterBottom variant="body2">
-                            Avg Overall %
+                            Completed Courses
                           </Typography>
                           <Typography variant="h4">
-                            {studentWithSubjects.average_percentage?.toFixed(1) || 'N/A'}%
+                            {studentWithSubjects.subjects.filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length}
                           </Typography>
                         </Box>
-                        <TrendingUp color="info" sx={{ fontSize: 40 }} />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card>
-                    <CardContent>
-                      <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                          <Typography color="text.secondary" gutterBottom variant="body2">
-                            Status
-                          </Typography>
-                          <Chip 
-                            label={currentStudent.status || 'Unknown'} 
-                            color={getStatusColor(currentStudent.status)}
-                            size="small"
-                          />
-                        </Box>
-                        <Person color="warning" sx={{ fontSize: 40 }} />
+                        <BookOutlined color="primary" sx={{ fontSize: 40 }} />
                       </Box>
                     </CardContent>
                   </Card>
                 </Grid>
               </Grid>
 
-              {/* Courses Table */}
-              <Card>
+              {/* Taken Courses Table */}
+              <Card sx={{ mb: 3 }}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom display="flex" alignItems="center">
-                    <BookOutlined sx={{ mr: 1 }} />
-                    Course Performance Details
+                    <CheckCircle sx={{ mr: 1 }} color="success" />
+                    Completed Courses ({studentWithSubjects.subjects.filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length})
                   </Typography>
                   <TableContainer component={Paper} sx={{ mt: 2 }}>
-                    <Table>
+                    <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ bgcolor: 'primary.main' }}>
+                        <TableRow sx={{ bgcolor: 'success.main' }}>
                           <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Code</TableCell>
                           <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Course Name</TableCell>
                           <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Grade</TableCell>
                           <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Overall %</TableCell>
                           <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Attendance %</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Coursework %</TableCell>
                           <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Year/Month</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Status</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {studentWithSubjects.subjects.map((subject) => (
+                        {studentWithSubjects.subjects
+                          .filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
+                          .map((subject) => (
                           <TableRow key={subject.id} hover>
                             <TableCell>
                               <Typography variant="body2" fontWeight="medium">
@@ -636,41 +537,83 @@ const Dashboard: React.FC = () => {
                               </Box>
                             </TableCell>
                             <TableCell align="center">
-                              <Box>
-                                <Typography variant="body2">
-                                  {subject.attendancepercentage?.toFixed(1) || 'N/A'}
-                                  {subject.attendancepercentage && '%'}
-                                </Typography>
-                                {subject.attendancepercentage && (
-                                  <LinearProgress 
-                                    variant="determinate" 
-                                    value={subject.attendancepercentage} 
-                                    sx={{ mt: 0.5, height: 6, borderRadius: 1 }}
-                                    color={
-                                      subject.attendancepercentage >= 80 ? 'success' :
-                                      subject.attendancepercentage >= 60 ? 'warning' : 'error'
-                                    }
-                                  />
-                                )}
-                              </Box>
-                            </TableCell>
-                            <TableCell align="center">
-                              {subject.courseworkpercentage?.toFixed(1) || 'N/A'}
-                              {subject.courseworkpercentage && '%'}
+                              <Typography variant="body2">
+                                {subject.attendancepercentage?.toFixed(1) || 'N/A'}
+                                {subject.attendancepercentage && '%'}
+                              </Typography>
                             </TableCell>
                             <TableCell align="center">
                               {subject.examyear && subject.exammonth 
                                 ? `${subject.examyear}/${subject.exammonth}` 
                                 : 'N/A'}
                             </TableCell>
-                            <TableCell align="center">
-                              {subject.status || 'N/A'}
-                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
+                </CardContent>
+              </Card>
+
+              {/* Untaken/Pending Courses Table */}
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+                    <CalendarToday sx={{ mr: 1 }} color="warning" />
+                    Pending / In Progress ({studentWithSubjects.subjects.filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length})
+                  </Typography>
+                  {studentWithSubjects.subjects.filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length > 0 ? (
+                    <TableContainer component={Paper} sx={{ mt: 2 }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: 'warning.main' }}>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Code</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Course Name</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Status</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Attendance %</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Coursework %</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {studentWithSubjects.subjects
+                            .filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
+                            .map((subject) => (
+                            <TableRow key={subject.id} hover>
+                              <TableCell>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {subject.subjectcode || 'N/A'}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {subject.subjectname || 'N/A'}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                <Chip 
+                                  label={subject.grade || subject.status || 'Pending'} 
+                                  color={subject.grade === 'P' ? 'info' : subject.grade === 'EX' ? 'default' : 'warning'}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell align="center">
+                                <Typography variant="body2">
+                                  {subject.attendancepercentage?.toFixed(1) || 'N/A'}
+                                  {subject.attendancepercentage && '%'}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                {subject.courseworkpercentage?.toFixed(1) || 'N/A'}
+                                {subject.courseworkpercentage && '%'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Typography color="text.secondary" sx={{ mt: 2 }}>No pending courses</Typography>
+                  )}
                 </CardContent>
               </Card>
             </>
@@ -689,117 +632,59 @@ const Dashboard: React.FC = () => {
             <Alert severity="error">{plannerError}</Alert>
           ) : (
             <>
-              <Grid container spacing={3} mb={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Programme Variants
-                      </Typography>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">Select a variant:</Typography>
-                        <select
-                          value={selectedVariant}
-                          onChange={(e) => setSelectedVariant(e.target.value)}
-                          style={{ padding: '8px', marginTop: '8px', width: '100%' }}
-                        >
-                          {variants.map((v) => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Progress Summary
-                      </Typography>
-                      {progress ? (
-                        <Box>
-                          <Typography>Completed Credits: {progress.completed_credits}</Typography>
-                          <Typography>Total Credits: {progress.total_credits}</Typography>
-                          <Typography>Percent Complete: {progress.percent_complete}%</Typography>
-                          <Box mt={1}>
-                            <LinearProgress variant="determinate" value={progress.percent_complete} />
-                          </Box>
+              {/* Progress Summary */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Progress Summary
+                  </Typography>
+                  {progress ? (
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={4}>
+                        <Box textAlign="center" p={2} bgcolor="primary.light" borderRadius={2}>
+                          <Typography variant="body2" color="primary.contrastText">
+                            Completed Credits
+                          </Typography>
+                          <Typography variant="h3" color="primary.contrastText" fontWeight="bold">
+                            {progress.completed_credits}
+                          </Typography>
                         </Box>
-                      ) : (
-                        <Typography color="text.secondary">No progress data</Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Outstanding Requirements
-                      </Typography>
-                      {progress ? (
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">Core Remaining ({progress.core_remaining.length})</Typography>
-                          <Box sx={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #eee', p: 1, borderRadius: 1 }}>
-                            {progress.core_remaining.map((c) => (
-                              <Chip key={c} label={c} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                            ))}
-                          </Box>
-                          <Typography variant="body2" color="text.secondary" mt={2}>Discipline Elective Slots</Typography>
-                          <Box>
-                            {progress.discipline_elective_placeholders_remaining.map((c) => (
-                              <Chip key={c} label={c} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                            ))}
-                          </Box>
-                          <Typography variant="body2" color="text.secondary" mt={2}>Free Elective Slots</Typography>
-                          <Box>
-                            {progress.free_elective_placeholders_remaining.map((c) => (
-                              <Chip key={c} label={c} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                            ))}
-                          </Box>
-                          <Typography variant="body2" color="text.secondary" mt={2}>Either-Subject Pairs</Typography>
-                          <Box>
-                            {progress.either_pairs_remaining.map((pair, idx) => (
-                              <Chip key={idx} label={`${pair[0]} / ${pair[1]}`} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                            ))}
-                          </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Box textAlign="center" p={2} bgcolor="info.light" borderRadius={2}>
+                          <Typography variant="body2" color="info.contrastText">
+                            Total Credits
+                          </Typography>
+                          <Typography variant="h3" color="info.contrastText" fontWeight="bold">
+                            {progress.total_credits}
+                          </Typography>
                         </Box>
-                      ) : (
-                        <Typography color="text.secondary">No outstanding data</Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        What-If Risk (Sample Plan)
-                      </Typography>
-                      {whatIfResult ? (
-                        <Box>
-                          <Typography>Total Credits: {whatIfResult.total_credits}</Typography>
-                          <Typography>Aggregate Risk: {whatIfResult.risk_band} ({whatIfResult.aggregated_risk_score})</Typography>
-                          <Box mt={1}>
-                            {whatIfResult.per_course.map((c) => (
-                              <Box key={c.subject_code} display="flex" alignItems="center" justifyContent="space-between" py={0.5}>
-                                <Typography>{c.subject_code} - {c.subject_name}</Typography>
-                                <Chip label={c.predicted_risk} color={c.predicted_risk === 'low' ? 'success' : c.predicted_risk === 'medium' ? 'warning' : 'error'} size="small" />
-                              </Box>
-                            ))}
-                          </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Box textAlign="center" p={2} bgcolor="success.light" borderRadius={2}>
+                          <Typography variant="body2" color="success.contrastText">
+                            Completion
+                          </Typography>
+                          <Typography variant="h3" color="success.contrastText" fontWeight="bold">
+                            {progress.percent_complete}%
+                          </Typography>
                         </Box>
-                      ) : (
-                        <Typography color="text.secondary">No what-if data</Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Box mt={1}>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={progress.percent_complete} 
+                            sx={{ height: 10, borderRadius: 5 }}
+                          />
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  ) : (
+                    <Typography color="text.secondary">No progress data</Typography>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Subject Success Predictions */}
               <Card sx={{ mt: 3 }}>

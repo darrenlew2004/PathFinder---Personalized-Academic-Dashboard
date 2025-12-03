@@ -74,12 +74,12 @@ const Header: React.FC = () => {
           >
             <MenuItem disabled>
               <Typography variant="body2" color="text.secondary">
-                {user?.email}
+                ID: {user?.id}
               </Typography>
             </MenuItem>
             <MenuItem disabled>
               <Typography variant="body2" color="text.secondary">
-                Semester: {user?.semester}
+                Program: {user?.program}
               </Typography>
             </MenuItem>
             <MenuItem onClick={handleLogout}>Logout</MenuItem>
