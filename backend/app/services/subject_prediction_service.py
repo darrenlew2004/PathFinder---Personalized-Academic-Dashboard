@@ -203,7 +203,14 @@ class SubjectPredictionService:
         return GRADE_POINTS.get(clean_grade, GRADE_POINTS.get(grade))
     
     def _get_student_subjects(self, student_id: int) -> Dict[str, Dict]:
-        """Get all subjects taken by a student with their grades"""
+        """Get all subjects taken by a student with their grades (with internal caching)"""
+        # Check cache first
+        if not hasattr(self, '_student_cache'):
+            self._student_cache = {}
+        
+        if student_id in self._student_cache:
+            return self._student_cache[student_id]
+        
         if self.df is None:
             return {}
         
@@ -224,16 +231,19 @@ class SubjectPredictionService:
                 'status': row.get('status', '')
             }
         
+        # Cache the result (limit cache size to prevent memory issues)
+        if len(self._student_cache) < 100:
+            self._student_cache[student_id] = subjects
+        
         return subjects
     
-    def predict_subject_success(
+    def _predict_with_subjects(
         self, 
         student_id: int, 
-        target_subject_code: str
+        target_subject_code: str,
+        student_subjects: Dict[str, Dict]
     ) -> SubjectPrediction:
-        """Predict success probability for a specific subject"""
-        
-        student_subjects = self._get_student_subjects(student_id)
+        """Internal prediction method that accepts pre-fetched student subjects"""
         prereqs = SUBJECT_PREREQUISITES.get(target_subject_code, [])
         
         prereq_performance = []
@@ -371,17 +381,19 @@ class SubjectPredictionService:
         student_id: int,
         target_subject_codes: List[str]
     ) -> StudentPredictionReport:
-        """Predict success for multiple subjects"""
+        """Predict success for multiple subjects (optimized to fetch student data once)"""
         
+        # Fetch student subjects once for all predictions
         student_subjects = self._get_student_subjects(student_id)
         
         # Calculate current GPA
         gpas = [s['grade_points'] for s in student_subjects.values() if s['grade_points'] is not None]
         current_gpa = np.mean(gpas) if gpas else 0.0
         
+        # Generate predictions by passing student_subjects directly
         predictions = []
         for code in target_subject_codes:
-            pred = self.predict_subject_success(student_id, code)
+            pred = self._predict_with_subjects(student_id, code, student_subjects)
             predictions.append(pred)
         
         # Identify high-risk subjects
@@ -438,6 +450,15 @@ class SubjectPredictionService:
         
         traverse(subject_code)
         return chain
+    
+    def predict_subject_success(
+        self, 
+        student_id: int, 
+        target_subject_code: str
+    ) -> SubjectPrediction:
+        """Predict success probability for a specific subject"""
+        student_subjects = self._get_student_subjects(student_id)
+        return self._predict_with_subjects(student_id, target_subject_code, student_subjects)
 
 
 # Singleton instance

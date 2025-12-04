@@ -18,6 +18,8 @@ class StudentRepository:
         self.keyspace = "subjectplanning"
         # Prepare statements for better performance
         self._prepared_find_by_id = None
+        # Cache for completed subject codes to avoid repeated parsing
+        self._completed_codes_cache = {}
     
     def _get_prepared_find_by_id(self):
         """Lazy load prepared statement for find_by_id"""
@@ -210,7 +212,12 @@ class StudentRepository:
         - Comma-separated string like "CODE:GRADE,CODE:GRADE"
         Filters out failing/withdrawn grades: {'F','FA','W'}.
         Returns an empty list if nothing can be parsed.
+        Cached for performance.
         """
+        # Check cache first
+        if student_id in self._completed_codes_cache:
+            return self._completed_codes_cache[student_id]
+        
         try:
             student = self.find_by_id(student_id)
             if not student:
@@ -242,6 +249,9 @@ class StudentRepository:
                             continue
                     except Exception:
                         continue
+                # Cache and return
+                if len(self._completed_codes_cache) < 100:
+                    self._completed_codes_cache[student_id] = codes
                 return codes
 
             # Case 2: JSON string form
@@ -258,6 +268,9 @@ class StudentRepository:
                                 grade = entry.get('grade') or entry.get('result') or entry.get('status')
                                 if code and (grade is None or str(grade).upper() not in fail_grades):
                                     codes.append(str(code))
+                        # Cache and return
+                        if len(self._completed_codes_cache) < 100:
+                            self._completed_codes_cache[student_id] = codes
                         return codes
                 except Exception:
                     pass
@@ -276,6 +289,9 @@ class StudentRepository:
                             # Just a code with no grade info
                             if p:
                                 codes.append(p)
+                    # Cache and return
+                    if len(self._completed_codes_cache) < 100:
+                        self._completed_codes_cache[student_id] = codes
                     return codes
                 except Exception:
                     return []

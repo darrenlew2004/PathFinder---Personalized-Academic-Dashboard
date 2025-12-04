@@ -39,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
-import { ProgressResponse, getStudentProgress } from '../../services/catalogue';
+import { ProgressResponse, getStudentProgress, getElectives, ElectivesResponse } from '../../services/catalogue';
 import { getStudentAnalytics, StudentProfile } from '../../services/analytics';
 import { getMultipleSubjectPredictions, StudentPredictionReport, SubjectPrediction, getRiskColor, getRiskEmoji, formatProbability } from '../../services/predictions';
 
@@ -50,6 +50,7 @@ const Dashboard: React.FC = () => {
   // Planner state
   const [selectedVariant] = useState<string>('202301-normal');
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
+  const [electives, setElectives] = useState<ElectivesResponse | null>(null);
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerError, setPlannerError] = useState<string | null>(null);
   // Analytics state
@@ -85,12 +86,16 @@ const Dashboard: React.FC = () => {
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
           
-          // Fetch progress
-          const prog = await getStudentProgress(
-            selectedVariant.split('-')[0] || '202301', 
-            selectedVariant.split('-')[1] || 'normal'
-          );
+          // Fetch progress and electives in parallel
+          const [prog, electivesData] = await Promise.all([
+            getStudentProgress(
+              selectedVariant.split('-')[0] || '202301', 
+              selectedVariant.split('-')[1] || 'normal'
+            ),
+            getElectives(selectedVariant)
+          ]);
           setProgress(prog);
+          setElectives(electivesData);
           
         } catch (e: any) {
           setPlannerError(e?.message || 'Failed to load planner');
@@ -103,14 +108,35 @@ const Dashboard: React.FC = () => {
 
   // Load subject predictions when planner tab is active and we have progress data
   useEffect(() => {
-    if (tabValue === 2 && currentStudent && progress && !predictions && !predictionsLoading) {
+    if (tabValue === 2 && currentStudent && progress && electives && !predictions && !predictionsLoading) {
       (async () => {
         try {
           setPredictionsLoading(true);
-          // Get predictions for remaining core subjects
-          const subjectCodes = progress.core_remaining.slice(0, 10); // Limit to 10 for performance
-          if (subjectCodes.length > 0) {
-            const report = await getMultipleSubjectPredictions(currentStudent.id, subjectCodes);
+          
+          // Get actual elective course codes from the elective groups
+          const electiveCodes = new Set<string>();
+          
+          // For each remaining elective placeholder, get the available course options
+          const remainingPlaceholders = [
+            ...progress.discipline_elective_placeholders_remaining,
+            ...progress.free_elective_placeholders_remaining
+          ];
+          
+          for (const placeholder of remainingPlaceholders) {
+            const group = electives.elective_groups[placeholder];
+            if (group && group.options) {
+              group.options.forEach(course => {
+                if (!course.is_placeholder) {
+                  electiveCodes.add(course.subject_code);
+                }
+              });
+            }
+          }
+          
+          const electiveSubjects = Array.from(electiveCodes).slice(0, 15); // Limit to 15 for performance
+          
+          if (electiveSubjects.length > 0) {
+            const report = await getMultipleSubjectPredictions(currentStudent.id, electiveSubjects);
             setPredictions(report);
           }
         } catch (e: any) {
@@ -120,7 +146,7 @@ const Dashboard: React.FC = () => {
         }
       })();
     }
-  }, [tabValue, currentStudent, progress, predictions, predictionsLoading]);
+  }, [tabValue, currentStudent, progress, electives, predictions, predictionsLoading]);
 
   // Load analytics data when switching to Analytics tab
   useEffect(() => {
@@ -692,9 +718,9 @@ const Dashboard: React.FC = () => {
                   <Box display="flex" alignItems="center" gap={1} mb={2}>
                     <Warning color="warning" />
                     <Typography variant="h6">
-                      Subject Success Predictions
+                      Elective Subject Predictions
                     </Typography>
-                    <Tooltip title="Predictions based on your performance in prerequisite subjects">
+                    <Tooltip title="Success predictions for elective subjects based on your prerequisite performance">
                       <Info fontSize="small" color="action" />
                     </Tooltip>
                   </Box>
@@ -859,7 +885,7 @@ const Dashboard: React.FC = () => {
                     </>
                   ) : (
                     <Typography color="text.secondary">
-                      No prediction data available. Complete some prerequisite subjects first.
+                      No elective subjects available for prediction yet, or no prerequisite data found.
                     </Typography>
                   )}
                 </CardContent>
