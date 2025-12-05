@@ -12,6 +12,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/students", tags=["Students"])
 
 
+def get_program_name(program_code: str) -> str:
+    """Derive program name from program code"""
+    program_map = {
+        'BCS': 'Bachelor of Computer Science',
+        'BIT': 'Bachelor of Information Technology',
+        'BSE': 'Bachelor of Software Engineering',
+        'BCIS': 'Bachelor of Computer and Information Systems',
+    }
+    return program_map.get(program_code.upper() if program_code else '', program_code or '')
+
+
 @router.get("/list", response_model=list[StudentResponse])
 async def list_students(limit: int = 10):
     """List students (for testing - shows IC numbers you can use to login)
@@ -31,7 +42,7 @@ async def list_students(limit: int = 10):
             ic=s.ic,
             name=s.name,
             programmecode=s.programmecode,
-            program=s.program,
+            program=s.program or get_program_name(s.programmecode),
             overallcgpa=s.overallcgpa,
             overallcavg=s.overallcavg,
             year=s.year,
@@ -76,7 +87,7 @@ async def get_current_student(claims: dict = Depends(get_current_user)):
         ic=student.ic,
         name=student.name,
         programmecode=student.programmecode,
-        program=student.program,
+        program=student.program or get_program_name(student.programmecode),
         overallcgpa=student.overallcgpa,
         overallcavg=student.overallcavg,
         year=student.year,

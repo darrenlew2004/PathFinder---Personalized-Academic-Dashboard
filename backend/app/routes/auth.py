@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+def get_program_name(program_code: str) -> str:
+    """Derive program name from program code"""
+    program_map = {
+        'BCS': 'Bachelor of Computer Science',
+        'BIT': 'Bachelor of Information Technology',
+        'BSE': 'Bachelor of Software Engineering',
+        'BCIS': 'Bachelor of Computer and Information Systems',
+    }
+    return program_map.get(program_code.upper() if program_code else '', program_code or '')
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
     """
@@ -44,14 +55,18 @@ async def login(request: LoginRequest):
                 ic=student.ic,
                 name=student.name,
                 programmecode=student.programmecode,
-                program=student.program,
+                program=student.program or get_program_name(student.programmecode),
                 overallcgpa=student.overallcgpa,
                 overallcavg=student.overallcavg,
                 year=student.year,
                 sem=student.sem,
                 status=student.status,
                 graduated=student.graduated,
-                cohort=student.cohort
+                cohort=student.cohort,
+                gender=student.gender,
+                race=student.race,
+                country=student.country,
+                yearonecgpa=student.yearonecgpa
             )
         )
     

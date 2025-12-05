@@ -23,6 +23,9 @@ import {
   Tooltip,
   Collapse,
   IconButton,
+  Divider,
+  Stack,
+  Fade,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -36,6 +39,9 @@ import {
   ExpandLess,
   Warning,
   Info,
+  Dashboard as DashboardIcon,
+  Timeline,
+  HourglassEmpty,
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
@@ -70,12 +76,29 @@ const Dashboard: React.FC = () => {
   }, [dispatch, currentStudent]);
 
   useEffect(() => {
-    // Fetch subjects when switching to Courses tab
-    if (tabValue === 1 && currentStudent && !studentWithSubjects) {
-      dispatch(fetchStudentWithSubjects(currentStudent.id));
+    // Fetch subjects and analytics when on main dashboard
+    if (tabValue === 0 && currentStudent) {
+      if (!studentWithSubjects) {
+        dispatch(fetchStudentWithSubjects(currentStudent.id));
+      }
+      if (!analyticsData) {
+        (async () => {
+          try {
+            setAnalyticsLoading(true);
+            setAnalyticsError(null);
+            const data = await getStudentAnalytics(currentStudent.id);
+            setAnalyticsData(data);
+          } catch (e: any) {
+            setAnalyticsError(e?.message || 'Failed to load analytics');
+          } finally {
+            setAnalyticsLoading(false);
+          }
+        })();
+      }
     }
+    
     // Load planner data when switching to Planner tab
-    if (tabValue === 2 && !progress) {
+    if (tabValue === 1 && !progress) {
       (async () => {
         try {
           setPlannerError(null);
@@ -108,7 +131,7 @@ const Dashboard: React.FC = () => {
 
   // Load subject predictions when planner tab is active and we have progress data
   useEffect(() => {
-    if (tabValue === 2 && currentStudent && progress && electives && !predictions && !predictionsLoading) {
+    if (tabValue === 1 && currentStudent && progress && electives && !predictions && !predictionsLoading) {
       (async () => {
         try {
           setPredictionsLoading(true);
@@ -147,24 +170,6 @@ const Dashboard: React.FC = () => {
       })();
     }
   }, [tabValue, currentStudent, progress, electives, predictions, predictionsLoading]);
-
-  // Load analytics data when switching to Analytics tab
-  useEffect(() => {
-    if (tabValue === 3 && currentStudent && !analyticsData) {
-      (async () => {
-        try {
-          setAnalyticsLoading(true);
-          setAnalyticsError(null);
-          const data = await getStudentAnalytics(currentStudent.id);
-          setAnalyticsData(data);
-        } catch (e: any) {
-          setAnalyticsError(e?.message || 'Failed to load analytics');
-        } finally {
-          setAnalyticsLoading(false);
-        }
-      })();
-    }
-  }, [tabValue, currentStudent, analyticsData]);
 
   if (loading && !currentStudent) {
     return (
@@ -214,32 +219,74 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
-      <Box mb={4}>
-        <Typography variant="h4" gutterBottom>
-          Welcome back, {currentStudent.name || 'Student'}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Student ID: {currentStudent.id} | IC: {currentStudent.ic}
-        </Typography>
+    <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
+      {/* Modern Header */}
+      <Box 
+        sx={{ 
+          mb: 4, 
+          p: 3, 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 3,
+          color: 'white',
+          boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)'
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <School sx={{ fontSize: 48 }} />
+          <Box>
+            <Typography variant="h4" fontWeight="bold">
+              Welcome back, {currentStudent.name || 'Student'}
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              {currentStudent.program || currentStudent.programmecode} • Student ID: {currentStudent.id}
+            </Typography>
+          </Box>
+        </Stack>
       </Box>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="Overview" icon={<School />} iconPosition="start" />
-          <Tab label="Courses" icon={<BookOutlined />} iconPosition="start" />
-          <Tab label="Planner" icon={<TrendingUp />} iconPosition="start" />
-          <Tab label="Analytics" icon={<Analytics />} iconPosition="start" />
+      {/* Modern Tabs */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          mb: 3, 
+          borderRadius: 3, 
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange}
+          sx={{
+            '& .MuiTab-root': {
+              minHeight: 70,
+              fontSize: '1rem',
+              fontWeight: 600,
+            }
+          }}
+        >
+          <Tab 
+            label="Dashboard" 
+            icon={<DashboardIcon />} 
+            iconPosition="start"
+            sx={{ flex: 1 }}
+          />
+          <Tab 
+            label="Academic Planner" 
+            icon={<Timeline />} 
+            iconPosition="start"
+            sx={{ flex: 1 }}
+          />
         </Tabs>
-      </Box>
+      </Paper>
 
-      {/* Overview Tab */}
+      {/* Main Dashboard Tab (Overview + Courses + Analytics) */}
       {tabValue === 0 && (
-        <>
-          {/* Stats Cards */}
-          <Grid container spacing={3} mb={4}>
+        <Fade in={tabValue === 0} timeout={500}>
+          <Box>
+            {/* Stats Cards */}
+            <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -445,12 +492,12 @@ const Dashboard: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
-        </>
-      )}
+            {/* Divider between sections */}
+            <Divider sx={{ my: 5 }}>
+              <Chip icon={<BookOutlined />} label="Course Overview" color="primary" />
+            </Divider>
 
-      {/* Courses Tab */}
-      {tabValue === 1 && (
-        <>
+            {/* Courses Section */}
           {loading ? (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
               <CircularProgress />
@@ -644,64 +691,341 @@ const Dashboard: React.FC = () => {
               </Card>
             </>
           )}
-        </>
+            
+            {/* Divider between sections */}
+            <Divider sx={{ my: 5 }}>
+              <Chip icon={<Analytics />} label="Performance Analytics" color="secondary" />
+            </Divider>
+
+            {/* Analytics Section */}
+            {analyticsLoading ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress />
+              </Box>
+            ) : analyticsError ? (
+              <Alert severity="error">{analyticsError}</Alert>
+            ) : analyticsData ? (
+              <>
+                {/* Key Metrics */}
+                <Grid container spacing={3} mb={4}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card sx={{ 
+                      height: '100%',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white'
+                    }}>
+                      <CardContent>
+                        <Typography variant="body2" gutterBottom sx={{ opacity: 0.9 }}>
+                          Current GPA
+                        </Typography>
+                        <Typography variant="h3" fontWeight="bold">
+                          {analyticsData.current_gpa?.toFixed(2) || 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          out of 4.0
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card sx={{ 
+                      height: '100%',
+                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      color: 'white'
+                    }}>
+                      <CardContent>
+                        <Typography variant="body2" gutterBottom sx={{ opacity: 0.9 }}>
+                          Average Score
+                        </Typography>
+                        <Typography variant="h3" fontWeight="bold">
+                          {analyticsData.avg_score?.toFixed(1) || 'N/A'}%
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          ± {analyticsData.score_std?.toFixed(1) || '0'} std dev
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card sx={{ 
+                      height: '100%',
+                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                      color: 'white'
+                    }}>
+                      <CardContent>
+                        <Typography variant="body2" gutterBottom sx={{ opacity: 0.9 }}>
+                          Subjects Completed
+                        </Typography>
+                        <Typography variant="h3" fontWeight="bold">
+                          {analyticsData.subjects_taken}
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          across {analyticsData.terms_taken} terms
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card sx={{ 
+                      height: '100%',
+                      background: analyticsData.score_trend_per_term && analyticsData.score_trend_per_term > 0 
+                        ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'
+                        : 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                      color: 'white'
+                    }}>
+                      <CardContent>
+                        <Typography variant="body2" gutterBottom sx={{ opacity: 0.9 }}>
+                          Score Trend
+                        </Typography>
+                        <Typography variant="h3" fontWeight="bold">
+                          {analyticsData.score_trend_per_term ? (analyticsData.score_trend_per_term > 0 ? '+' : '') + analyticsData.score_trend_per_term.toFixed(1) : 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          % per term
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+
+                {/* Best/Worst Subjects */}
+                <Grid container spacing={3} mb={4}>
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ height: '100%', borderTop: 4, borderColor: 'success.main' }}>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom color="success.main" fontWeight="bold">
+                          🏆 Best Performance
+                        </Typography>
+                        {analyticsData.best_subject ? (
+                          <>
+                            <Typography variant="h6" fontWeight="bold" sx={{ mt: 2 }}>
+                              {analyticsData.best_subject.subjectname}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              {analyticsData.best_subject.subjectcode}
+                            </Typography>
+                            <Box sx={{ mt: 2, display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                              <Typography variant="h3" fontWeight="bold" color="success.main">
+                                {analyticsData.best_subject.overallpercentage?.toFixed(1)}
+                              </Typography>
+                              <Typography variant="h5" color="text.secondary">%</Typography>
+                            </Box>
+                          </>
+                        ) : (
+                          <Typography color="text.secondary">No data</Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ height: '100%', borderTop: 4, borderColor: 'warning.main' }}>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom color="warning.main" fontWeight="bold">
+                          📚 Focus Area
+                        </Typography>
+                        {analyticsData.worst_subject ? (
+                          <>
+                            <Typography variant="h6" fontWeight="bold" sx={{ mt: 2 }}>
+                              {analyticsData.worst_subject.subjectname}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              {analyticsData.worst_subject.subjectcode}
+                            </Typography>
+                            <Box sx={{ mt: 2, display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                              <Typography variant="h3" fontWeight="bold" color="warning.main">
+                                {analyticsData.worst_subject.overallpercentage?.toFixed(1)}
+                              </Typography>
+                              <Typography variant="h5" color="text.secondary">%</Typography>
+                            </Box>
+                          </>
+                        ) : (
+                          <Typography color="text.secondary">No data</Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+
+                {/* Term Performance */}
+                <Card sx={{ borderRadius: 3 }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom fontWeight="bold">
+                      📊 Performance by Term
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell><strong>Term</strong></TableCell>
+                            <TableCell align="right"><strong>Avg Score</strong></TableCell>
+                            <TableCell align="right"><strong>Exams</strong></TableCell>
+                            <TableCell align="right"><strong>Pass Rate</strong></TableCell>
+                            <TableCell><strong>Progress</strong></TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {analyticsData.term_stats.map((term) => (
+                            <TableRow key={term.term} hover>
+                              <TableCell><strong>{term.term}</strong></TableCell>
+                              <TableCell align="right">
+                                <Typography variant="body2" fontWeight="bold">
+                                  {term.avg_percentage?.toFixed(1) || 'N/A'}%
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">{term.total_exams}</TableCell>
+                              <TableCell align="right">
+                                <Chip 
+                                  label={`${term.pass_rate?.toFixed(0) || 0}%`} 
+                                  color={term.pass_rate && term.pass_rate >= 80 ? 'success' : term.pass_rate && term.pass_rate >= 50 ? 'warning' : 'error'}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell sx={{ width: '30%' }}>
+                                <LinearProgress 
+                                  variant="determinate" 
+                                  value={term.avg_percentage || 0}
+                                  color={term.avg_percentage && term.avg_percentage >= 60 ? 'success' : term.avg_percentage && term.avg_percentage >= 40 ? 'warning' : 'error'}
+                                  sx={{ height: 10, borderRadius: 5 }}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Alert severity="info">Loading analytics data...</Alert>
+            )}
+          </Box>
+        </Fade>
       )}
 
-      {/* Planner Tab */}
-      {tabValue === 2 && (
-        <>
+      {/* Academic Planner Tab */}
+      {tabValue === 1 && (
+        <Fade in={tabValue === 1} timeout={500}>
+          <Box>
           {plannerLoading ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
-              <CircularProgress />
+            <Box 
+              display="flex" 
+              flexDirection="column"
+              justifyContent="center" 
+              alignItems="center" 
+              minHeight="400px"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea22 0%, #764ba222 100%)',
+                borderRadius: 3,
+                p: 4
+              }}
+            >
+              <HourglassEmpty 
+                sx={{ 
+                  fontSize: 80, 
+                  color: 'primary.main',
+                  mb: 2,
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                  '@keyframes pulse': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.5 }
+                  }
+                }} 
+              />
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                Calculating Your Academic Plan
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                Please wait while we analyze your progress and generate recommendations...
+              </Typography>
+              <CircularProgress size={40} />
             </Box>
           ) : plannerError ? (
             <Alert severity="error">{plannerError}</Alert>
           ) : (
             <>
               {/* Progress Summary */}
-              <Card sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Progress Summary
+              <Card 
+                sx={{ 
+                  mb: 3, 
+                  borderRadius: 3,
+                  background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  <Typography variant="h5" gutterBottom fontWeight="bold">
+                    🎯 Academic Progress
                   </Typography>
                   {progress ? (
-                    <Grid container spacing={3}>
+                    <Grid container spacing={3} sx={{ mt: 1 }}>
                       <Grid item xs={12} sm={4}>
-                        <Box textAlign="center" p={2} bgcolor="primary.light" borderRadius={2}>
-                          <Typography variant="body2" color="primary.contrastText">
-                            Completed Credits
-                          </Typography>
-                          <Typography variant="h3" color="primary.contrastText" fontWeight="bold">
-                            {progress.completed_credits}
-                          </Typography>
-                        </Box>
+                        <Card sx={{ 
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          borderRadius: 2
+                        }}>
+                          <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                            <CheckCircle sx={{ fontSize: 40, mb: 1 }} />
+                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                              Completed Credits
+                            </Typography>
+                            <Typography variant="h2" fontWeight="bold">
+                              {progress.completed_credits}
+                            </Typography>
+                          </CardContent>
+                        </Card>
                       </Grid>
                       <Grid item xs={12} sm={4}>
-                        <Box textAlign="center" p={2} bgcolor="info.light" borderRadius={2}>
-                          <Typography variant="body2" color="info.contrastText">
-                            Total Credits
-                          </Typography>
-                          <Typography variant="h3" color="info.contrastText" fontWeight="bold">
-                            {progress.total_credits}
-                          </Typography>
-                        </Box>
+                        <Card sx={{ 
+                          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                          color: 'white',
+                          borderRadius: 2
+                        }}>
+                          <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                            <BookOutlined sx={{ fontSize: 40, mb: 1 }} />
+                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                              Total Credits
+                            </Typography>
+                            <Typography variant="h2" fontWeight="bold">
+                              {progress.total_credits}
+                            </Typography>
+                          </CardContent>
+                        </Card>
                       </Grid>
                       <Grid item xs={12} sm={4}>
-                        <Box textAlign="center" p={2} bgcolor="success.light" borderRadius={2}>
-                          <Typography variant="body2" color="success.contrastText">
-                            Completion
-                          </Typography>
-                          <Typography variant="h3" color="success.contrastText" fontWeight="bold">
-                            {progress.percent_complete}%
-                          </Typography>
-                        </Box>
+                        <Card sx={{ 
+                          background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                          color: 'white',
+                          borderRadius: 2
+                        }}>
+                          <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                            <TrendingUp sx={{ fontSize: 40, mb: 1 }} />
+                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                              Completion
+                            </Typography>
+                            <Typography variant="h2" fontWeight="bold">
+                              {progress.percent_complete}%
+                            </Typography>
+                          </CardContent>
+                        </Card>
                       </Grid>
                       <Grid item xs={12}>
-                        <Box mt={1}>
+                        <Box mt={2}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Overall Progress
+                          </Typography>
                           <LinearProgress 
                             variant="determinate" 
                             value={progress.percent_complete} 
-                            sx={{ height: 10, borderRadius: 5 }}
+                            sx={{ 
+                              height: 16, 
+                              borderRadius: 8,
+                              bgcolor: 'grey.200',
+                              '& .MuiLinearProgress-bar': {
+                                borderRadius: 8,
+                                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                              }
+                            }}
                           />
                         </Box>
                       </Grid>
@@ -713,12 +1037,12 @@ const Dashboard: React.FC = () => {
               </Card>
 
               {/* Subject Success Predictions */}
-              <Card sx={{ mt: 3 }}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <Warning color="warning" />
-                    <Typography variant="h6">
-                      Elective Subject Predictions
+              <Card sx={{ mt: 3, borderRadius: 3 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box display="flex" alignItems="center" gap={1} mb={3}>
+                    <Warning sx={{ fontSize: 32 }} color="warning" />
+                    <Typography variant="h5" fontWeight="bold">
+                      📈 Subject Recommendations
                     </Typography>
                     <Tooltip title="Success predictions for elective subjects based on your prerequisite performance">
                       <Info fontSize="small" color="action" />
@@ -892,223 +1216,8 @@ const Dashboard: React.FC = () => {
               </Card>
             </>
           )}
-        </>
-      )}
-
-      {/* Analytics Tab */}
-      {tabValue === 3 && (
-        <>
-          {analyticsLoading ? (
-            <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress />
-            </Box>
-          ) : analyticsError ? (
-            <Alert severity="error">{analyticsError}</Alert>
-          ) : analyticsData ? (
-            <>
-              {/* Key Metrics */}
-              <Grid container spacing={3} mb={4}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography color="text.secondary" variant="body2" gutterBottom>
-                        Current GPA
-                      </Typography>
-                      <Typography variant="h4">
-                        {analyticsData.current_gpa?.toFixed(2) || 'N/A'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        out of 4.0
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography color="text.secondary" variant="body2" gutterBottom>
-                        Average Score
-                      </Typography>
-                      <Typography variant="h4">
-                        {analyticsData.avg_score?.toFixed(1) || 'N/A'}%
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        ± {analyticsData.score_std?.toFixed(1) || '0'} std dev
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography color="text.secondary" variant="body2" gutterBottom>
-                        Subjects Taken
-                      </Typography>
-                      <Typography variant="h4">
-                        {analyticsData.subjects_taken}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        across {analyticsData.terms_taken} terms
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography color="text.secondary" variant="body2" gutterBottom>
-                        Score Trend
-                      </Typography>
-                      <Typography variant="h4" color={analyticsData.score_trend_per_term && analyticsData.score_trend_per_term > 0 ? 'success.main' : analyticsData.score_trend_per_term && analyticsData.score_trend_per_term < 0 ? 'error.main' : 'text.primary'}>
-                        {analyticsData.score_trend_per_term ? (analyticsData.score_trend_per_term > 0 ? '+' : '') + analyticsData.score_trend_per_term.toFixed(1) : 'N/A'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        % per term
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-
-              {/* Best/Worst Subjects & Benchmark */}
-              <Grid container spacing={3} mb={4}>
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ height: '100%', borderLeft: 4, borderColor: 'success.main' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom color="success.main">
-                        Best Subject
-                      </Typography>
-                      {analyticsData.best_subject ? (
-                        <>
-                          <Typography variant="body1" fontWeight="bold">
-                            {analyticsData.best_subject.subjectname}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {analyticsData.best_subject.subjectcode}
-                          </Typography>
-                          <Typography variant="h5" mt={1}>
-                            {analyticsData.best_subject.overallpercentage?.toFixed(1)}%
-                          </Typography>
-                        </>
-                      ) : (
-                        <Typography color="text.secondary">No data</Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ height: '100%', borderLeft: 4, borderColor: 'error.main' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom color="error.main">
-                        Needs Improvement
-                      </Typography>
-                      {analyticsData.worst_subject ? (
-                        <>
-                          <Typography variant="body1" fontWeight="bold">
-                            {analyticsData.worst_subject.subjectname}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {analyticsData.worst_subject.subjectcode}
-                          </Typography>
-                          <Typography variant="h5" mt={1}>
-                            {analyticsData.worst_subject.overallpercentage?.toFixed(1)}%
-                          </Typography>
-                        </>
-                      ) : (
-                        <Typography color="text.secondary">No data</Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Performance Summary
-                      </Typography>
-                      <Table size="small">
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Benchmark Delta</TableCell>
-                            <TableCell align="right">
-                              <Chip 
-                                label={analyticsData.avg_benchmark_delta ? (analyticsData.avg_benchmark_delta > 0 ? '+' : '') + analyticsData.avg_benchmark_delta.toFixed(1) + '%' : 'N/A'} 
-                                color={analyticsData.avg_benchmark_delta && analyticsData.avg_benchmark_delta > 0 ? 'success' : analyticsData.avg_benchmark_delta && analyticsData.avg_benchmark_delta < 0 ? 'error' : 'default'}
-                                size="small"
-                              />
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Failed Subjects</TableCell>
-                            <TableCell align="right">
-                              <Chip label={analyticsData.fails_count} color={analyticsData.fails_count > 0 ? 'error' : 'success'} size="small" />
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Retakes</TableCell>
-                            <TableCell align="right">
-                              <Chip label={analyticsData.retakes_count} color={analyticsData.retakes_count > 0 ? 'warning' : 'default'} size="small" />
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-
-              {/* Term Performance Timeline */}
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Performance by Term
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Term</TableCell>
-                          <TableCell align="right">Avg Score</TableCell>
-                          <TableCell align="right">Exams</TableCell>
-                          <TableCell align="right">Pass Rate</TableCell>
-                          <TableCell>Progress</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {analyticsData.term_stats.map((term) => (
-                          <TableRow key={term.term}>
-                            <TableCell>{term.term}</TableCell>
-                            <TableCell align="right">
-                              {term.avg_percentage?.toFixed(1) || 'N/A'}%
-                            </TableCell>
-                            <TableCell align="right">{term.total_exams}</TableCell>
-                            <TableCell align="right">
-                              <Chip 
-                                label={`${term.pass_rate?.toFixed(0) || 0}%`} 
-                                color={term.pass_rate && term.pass_rate >= 80 ? 'success' : term.pass_rate && term.pass_rate >= 50 ? 'warning' : 'error'}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell sx={{ width: '30%' }}>
-                              <LinearProgress 
-                                variant="determinate" 
-                                value={term.avg_percentage || 0}
-                                color={term.avg_percentage && term.avg_percentage >= 60 ? 'success' : term.avg_percentage && term.avg_percentage >= 40 ? 'warning' : 'error'}
-                                sx={{ height: 8, borderRadius: 4 }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <Alert severity="info">No analytics data available</Alert>
-          )}
-        </>
+          </Box>
+        </Fade>
       )}
     </Container>
   );
