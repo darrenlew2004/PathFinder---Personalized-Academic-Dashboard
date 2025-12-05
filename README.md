@@ -30,28 +30,37 @@ A full-stack application for academic planning and student data management using
 - **Node.js 18+ and npm**
 - **Cassandra Access** (External cluster at sunway.hep88.com:9042)
 
+## Features
+
+- 🔐 **JWT Authentication** - Secure student login system
+- 📊 **Student Analytics** - Cohort analysis, enrollment trends, grade distributions
+- 🎯 **Subject Predictions** - AI-powered success predictions based on prerequisites
+- 📈 **Performance Tracking** - GPA trends and subject completion analysis
+- 🎓 **Program Catalog** - BCS program requirements and variants
+- 📱 **Responsive UI** - Material-UI based dashboard with multiple tabs
+
 ## Project Structure
 
 ```
 PathFinder---Personalized-Academic-Dashboard/
 ├── backend/                    # Python/FastAPI Backend
+│   ├── analysis/              # Data Analysis Scripts
 │   ├── app/
+│   │   ├── catalog/           # Program Catalogs
 │   │   ├── routes/            # API Endpoints
 │   │   ├── models/            # Pydantic Models
 │   │   ├── repositories/      # Database Access Layer
-│   │   └── services/          # Business Logic
+│   │   └── services/          # Business Logic & ML
+│   ├── data/                  # CSV Data Files
 │   ├── run.py                 # Entry Point
 │   └── requirements.txt       # Python Dependencies
 │
 └── frontend/                  # React/TypeScript Frontend
-    ├── src/
-    │   ├── components/       # React Components
-    │   ├── features/         # Redux Slices
-    │   ├── services/         # API Services
-    │   ├── App.tsx          # Main App Component
-    │   └── main.tsx         # Entry Point
-    ├── package.json
-    └── vite.config.ts
+    ├── src/components/        # React Components
+    ├── features/              # Redux Slices
+    ├── services/              # API Services
+    ├── main.tsx               # Entry Point
+    └── package.json
 ```
 
 ## Backend Setup
@@ -95,9 +104,9 @@ PORT=9000
 
 ### 4. Run Backend
 
-```bash
-# Using start script
-.\start.bat
+```powershell
+# Using start script (recommended)
+.\start.ps1
 
 # Or directly
 python run.py
@@ -165,64 +174,59 @@ The application connects to existing Cassandra tables:
 - `examyear`, `exammonth` - Examination period
 - `status`, `credit`, `prerequisite`, `level` - Subject properties
 
-## Features
-
-### 1. Authentication
-- Student ID-based login (integer)
-- JWT-based authentication
-- Secure token management
-
-### 2. Dashboard
-- Overall CGPA and CAVG display
-- Current year and semester
-- Student personal information
-- Academic performance metrics
-- Program and cohort details
-
-### 3. Student Data API
-- List all students with pagination
-- Get current authenticated student
-- Fetch student with their subjects
-- Health check endpoint
-
 ## API Endpoints
 
 ### Authentication
 ```
-POST   /auth/login        - Login with student ID
-POST   /auth/logout       - Logout
-POST   /auth/refresh      - Refresh JWT token
-GET    /auth/verify       - Verify JWT token
-POST   /auth/logout       - Logout
-GET    /auth/verify       - Verify token
+POST   /auth/login         - Login with student ID (returns JWT token)
+POST   /auth/refresh       - Refresh JWT token
+GET    /auth/verify        - Verify JWT token
 ```
 
 ### Student Data
 ```
-GET    /api/students/current           - Get current student stats
-GET    /api/students/:id/stats         - Get student statistics
-GET    /api/students/:id/progress      - Get course progress
-GET    /api/students/:id/risks         - Get risk predictions
+GET    /api/students/current              - Get current student info
+GET    /api/students/{id}/stats           - Get student statistics
+```
+
+### Analytics
+```
+GET    /api/analytics/cohort              - Cohort performance analysis
+GET    /api/analytics/subject-enrollment  - Subject enrollment trends
+GET    /api/analytics/subject-pass-rates  - Subject pass rate analysis
+```
+
+### Predictions
+```
+GET    /api/predictions/students/{id}/subject/{code}  - Predict single subject success
+POST   /api/predictions/students/{id}/subjects        - Predict multiple subjects
+```
+
+### Program Catalog
+```
+GET    /api/catalogue/progress/{period}/{variant}     - Get program progress
+GET    /api/catalogue/variants                        - List program variants
+POST   /api/catalogue/what-if                         - What-if analysis
 ```
 
 ### Health Check
 ```
-GET    /health            - System health status
+GET    /health             - System health status
 ```
+
+Full API documentation available at: `http://localhost:9000/docs`
 
 ## Development
 
 ### Backend Development
 
-```bash
-# Run in development mode with auto-reload
-sbt ~run
+```powershell
+# Run with auto-reload (via start.ps1)
+.\start.ps1
 
-# Run tests
-sbt test
-
-# Create distribution
-sbt dist
+# Or manually activate venv and run
+.\venv\Scripts\Activate.ps1
+python run.py
 ```
 
 ### Frontend Development
@@ -281,21 +285,9 @@ npm run lint
 - Frontend proxy is configured in `vite.config.ts`
 - Backend CORS is enabled in `main.py`
 
-## Quick Start
+## Testing
 
-```bash
-# Backend
-cd backend
-.\setup.ps1
-.\start.bat
-
-# Frontend (new terminal)
-cd frontend
-npm install
-npm run dev
-```
-
-Visit http://localhost:5173 and login with a student ID from the database.
+Login with any student ID from the database to test the application. Visit `http://localhost:5173` for the frontend and `http://localhost:9000/docs` for API documentation.
 
 ## License
 
