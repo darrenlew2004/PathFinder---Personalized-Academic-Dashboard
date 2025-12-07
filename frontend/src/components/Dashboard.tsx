@@ -26,6 +26,7 @@ import {
   Divider,
   Stack,
   Fade,
+  Button,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -104,24 +105,43 @@ const Dashboard: React.FC = () => {
           setPlannerError(null);
           setPlannerLoading(true);
           
+          console.log('[Planner] Starting to load data...');
+          
           // Ensure we have subjects available
           if (currentStudent && !studentWithSubjects) {
+            console.log('[Planner] Fetching student subjects...');
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
           
-          // Fetch progress and electives in parallel
-          const [prog, electivesData] = await Promise.all([
-            getStudentProgress(
-              selectedVariant.split('-')[0] || '202301', 
-              selectedVariant.split('-')[1] || 'normal'
-            ),
-            getElectives(selectedVariant)
-          ]);
+          // Fetch with timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000)
+          );
+          
+          console.log('[Planner] Fetching progress and electives...');
+          const startTime = Date.now();
+          
+          // Fetch progress and electives with timeout
+          const [prog, electivesData] = await Promise.race([
+            Promise.all([
+              getStudentProgress(
+                selectedVariant.split('-')[0] || '202301', 
+                selectedVariant.split('-')[1] || 'normal'
+              ),
+              getElectives(selectedVariant)
+            ]),
+            timeoutPromise
+          ]) as [any, any];
+          
+          const loadTime = Date.now() - startTime;
+          console.log(`[Planner] Data loaded in ${loadTime}ms`);
+          
           setProgress(prog);
           setElectives(electivesData);
           
         } catch (e: any) {
-          setPlannerError(e?.message || 'Failed to load planner');
+          console.error('[Planner] Error loading data:', e);
+          setPlannerError(e?.message || 'Failed to load planner. This might be due to a slow network connection or server issue.');
         } finally {
           setPlannerLoading(false);
         }
@@ -129,47 +149,64 @@ const Dashboard: React.FC = () => {
     }
   }, [tabValue, currentStudent, studentWithSubjects, dispatch, progress, selectedVariant]);
 
-  // Load subject predictions when planner tab is active and we have progress data
-  useEffect(() => {
-    if (tabValue === 1 && currentStudent && progress && electives && !predictions && !predictionsLoading) {
-      (async () => {
-        try {
-          setPredictionsLoading(true);
-          
-          // Get actual elective course codes from the elective groups
-          const electiveCodes = new Set<string>();
-          
-          // For each remaining elective placeholder, get the available course options
-          const remainingPlaceholders = [
-            ...progress.discipline_elective_placeholders_remaining,
-            ...progress.free_elective_placeholders_remaining
-          ];
-          
-          for (const placeholder of remainingPlaceholders) {
-            const group = electives.elective_groups[placeholder];
-            if (group && group.options) {
-              group.options.forEach(course => {
-                if (!course.is_placeholder) {
-                  electiveCodes.add(course.subject_code);
-                }
-              });
+  // Function to manually load predictions (lazy loading)
+  const loadPredictions = async () => {
+    if (!currentStudent || !progress || !electives || predictionsLoading) return;
+    
+    try {
+      setPredictionsLoading(true);
+      console.log('[Predictions] Starting to load AI recommendations...');
+      
+      // Get actual elective course codes from the elective groups
+      const electiveCodes = new Set<string>();
+      
+      // For each remaining elective placeholder, get the available course options
+      const remainingPlaceholders = [
+        ...progress.discipline_elective_placeholders_remaining,
+        ...progress.free_elective_placeholders_remaining
+      ];
+      
+      for (const placeholder of remainingPlaceholders) {
+        const group = electives.elective_groups[placeholder];
+        if (group && group.options) {
+          group.options.forEach(course => {
+            if (!course.is_placeholder) {
+              electiveCodes.add(course.subject_code);
             }
-          }
-          
-          const electiveSubjects = Array.from(electiveCodes).slice(0, 15); // Limit to 15 for performance
-          
-          if (electiveSubjects.length > 0) {
-            const report = await getMultipleSubjectPredictions(currentStudent.id, electiveSubjects);
-            setPredictions(report);
-          }
-        } catch (e: any) {
-          console.error('Failed to load predictions:', e);
-        } finally {
-          setPredictionsLoading(false);
+          });
         }
-      })();
+      }
+      
+      const electiveSubjects = Array.from(electiveCodes).slice(0, 5); // Limit to 5 for faster loading
+      console.log(`[Predictions] Requesting predictions for ${electiveSubjects.length} subjects:`, electiveSubjects);
+      
+      if (electiveSubjects.length > 0) {
+        const startTime = Date.now();
+        
+        // Add timeout for predictions
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Prediction request timed out after 30 seconds')), 30000)
+        );
+        
+        const report = await Promise.race([
+          getMultipleSubjectPredictions(currentStudent.id, electiveSubjects),
+          timeoutPromise
+        ]) as any;
+        
+        const loadTime = Date.now() - startTime;
+        console.log(`[Predictions] Loaded in ${loadTime}ms`);
+        
+        setPredictions(report);
+      } else {
+        console.log('[Predictions] No eligible subjects found');
+      }
+    } catch (e: any) {
+      console.error('[Predictions] Error loading predictions:', e);
+      alert(`Failed to load AI recommendations: ${e?.message || 'Unknown error'}`);
+    } finally {
+      setPredictionsLoading(false);
     }
-  }, [tabValue, currentStudent, progress, electives, predictions, predictionsLoading]);
+  };
 
   if (loading && !currentStudent) {
     return (
@@ -945,113 +982,68 @@ const Dashboard: React.FC = () => {
           ) : (
             <>
               {/* Progress Summary */}
-              <Card 
-                sx={{ 
-                  mb: 3, 
-                  borderRadius: 3,
-                  background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
-                }}
-              >
-                <CardContent sx={{ p: 4 }}>
-                  <Typography variant="h5" gutterBottom fontWeight="bold">
-                    🎯 Academic Progress
-                  </Typography>
-                  {progress ? (
-                    <Grid container spacing={3} sx={{ mt: 1 }}>
-                      <Grid item xs={12} sm={4}>
-                        <Card sx={{ 
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          color: 'white',
-                          borderRadius: 2
-                        }}>
-                          <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                            <CheckCircle sx={{ fontSize: 40, mb: 1 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                              Completed Credits
-                            </Typography>
-                            <Typography variant="h2" fontWeight="bold">
-                              {progress.completed_credits}
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Card sx={{ 
-                          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                          color: 'white',
-                          borderRadius: 2
-                        }}>
-                          <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                            <BookOutlined sx={{ fontSize: 40, mb: 1 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                              Total Credits
-                            </Typography>
-                            <Typography variant="h2" fontWeight="bold">
-                              {progress.total_credits}
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Card sx={{ 
-                          background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                          color: 'white',
-                          borderRadius: 2
-                        }}>
-                          <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                            <TrendingUp sx={{ fontSize: 40, mb: 1 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                              Completion
-                            </Typography>
-                            <Typography variant="h2" fontWeight="bold">
-                              {progress.percent_complete}%
-                            </Typography>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Box mt={2}>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Overall Progress
-                          </Typography>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={progress.percent_complete} 
-                            sx={{ 
-                              height: 16, 
-                              borderRadius: 8,
-                              bgcolor: 'grey.200',
-                              '& .MuiLinearProgress-bar': {
-                                borderRadius: 8,
-                                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
-                              }
-                            }}
-                          />
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  ) : (
-                    <Typography color="text.secondary">No progress data</Typography>
-                  )}
-                </CardContent>
-              </Card>
-
               {/* Subject Success Predictions */}
               <Card sx={{ mt: 3, borderRadius: 3 }}>
                 <CardContent sx={{ p: 4 }}>
-                  <Box display="flex" alignItems="center" gap={1} mb={3}>
-                    <Warning sx={{ fontSize: 32 }} color="warning" />
-                    <Typography variant="h5" fontWeight="bold">
-                      📈 Subject Recommendations
-                    </Typography>
-                    <Tooltip title="Success predictions for elective subjects based on your prerequisite performance">
-                      <Info fontSize="small" color="action" />
-                    </Tooltip>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Warning sx={{ fontSize: 32 }} color="warning" />
+                      <Typography variant="h5" fontWeight="bold">
+                        📈 Subject Recommendations
+                      </Typography>
+                      <Tooltip title="AI-powered success predictions for elective subjects based on your performance">
+                        <Info fontSize="small" color="action" />
+                      </Tooltip>
+                    </Box>
+                    {!predictions && !predictionsLoading && (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<TrendingUp />}
+                        onClick={loadPredictions}
+                        sx={{
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          px: 3,
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                        }}
+                      >
+                        Load AI Recommendations
+                      </Button>
+                    )}
                   </Box>
                   
-                  {predictionsLoading ? (
-                    <Box display="flex" justifyContent="center" py={2}>
-                      <CircularProgress size={24} />
+                  {!predictions && !predictionsLoading ? (
+                    <Box 
+                      textAlign="center" 
+                      py={6}
+                      sx={{
+                        background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                        borderRadius: 2,
+                        border: '2px dashed',
+                        borderColor: 'primary.main'
+                      }}
+                    >
+                      <TrendingUp sx={{ fontSize: 60, color: 'primary.main', mb: 2, opacity: 0.5 }} />
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        Get AI-Powered Recommendations
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" mb={3}>
+                        Click the button above to analyze your academic history and get personalized subject recommendations
+                      </Typography>
+                    </Box>
+                  ) : predictionsLoading ? (
+                    <Box 
+                      display="flex" 
+                      flexDirection="column"
+                      justifyContent="center" 
+                      alignItems="center"
+                      py={6}
+                    >
+                      <CircularProgress size={48} sx={{ mb: 2 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Analyzing your academic performance with AI...
+                      </Typography>
                     </Box>
                   ) : predictions && predictions.predictions.length > 0 ? (
                     <>
@@ -1089,9 +1081,19 @@ const Dashboard: React.FC = () => {
                                 >
                                   <TableCell>
                                     <Box>
-                                      <Typography variant="body2" fontWeight="medium">
-                                        {pred.subject_code}
-                                      </Typography>
+                                      <Box display="flex" alignItems="center" gap={1}>
+                                        <Typography variant="body2" fontWeight="medium">
+                                          {pred.subject_code}
+                                        </Typography>
+                                        {pred.prediction_method === 'hybrid' && (
+                                          <Chip 
+                                            label="🤖 AI" 
+                                            size="small" 
+                                            sx={{ height: 20, fontSize: '0.65rem' }}
+                                            color="info"
+                                          />
+                                        )}
+                                      </Box>
                                       <Typography variant="caption" color="text.secondary">
                                         {pred.subject_name}
                                       </Typography>
@@ -1168,6 +1170,52 @@ const Dashboard: React.FC = () => {
                                                 />
                                               ))}
                                             </Box>
+                                          </Box>
+                                        )}
+                                        
+                                        {pred.ml_probability !== null && pred.ml_probability !== undefined && (
+                                          <Box mt={2} p={1.5} sx={{ bgcolor: 'info.lighter', borderRadius: 1, border: '1px solid', borderColor: 'info.light' }}>
+                                            <Typography variant="caption" fontWeight="bold" color="info.dark" display="flex" alignItems="center" gap={0.5}>
+                                              🤖 Machine Learning Analysis
+                                            </Typography>
+                                            <Box mt={1} display="flex" gap={2} flexWrap="wrap">
+                                              <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                  ML Probability
+                                                </Typography>
+                                                <Typography variant="body2" fontWeight="bold" color="info.dark">
+                                                  {(pred.ml_probability * 100).toFixed(1)}%
+                                                </Typography>
+                                              </Box>
+                                              {pred.ml_confidence !== null && pred.ml_confidence !== undefined && (
+                                                <Box>
+                                                  <Typography variant="caption" color="text.secondary" display="block">
+                                                    Confidence
+                                                  </Typography>
+                                                  <Typography variant="body2" fontWeight="bold" color="info.dark">
+                                                    {(pred.ml_confidence * 100).toFixed(0)}%
+                                                  </Typography>
+                                                </Box>
+                                              )}
+                                            </Box>
+                                            {pred.ml_top_factors && pred.ml_top_factors.length > 0 && (
+                                              <Box mt={1}>
+                                                <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                  Top Contributing Factors:
+                                                </Typography>
+                                                <Box display="flex" flexWrap="wrap" gap={0.5}>
+                                                  {pred.ml_top_factors.slice(0, 5).map(([factor, _], idx) => (
+                                                    <Chip
+                                                      key={idx}
+                                                      label={`${idx + 1}. ${factor}`}
+                                                      size="small"
+                                                      variant="outlined"
+                                                      sx={{ fontSize: '0.7rem', height: 22 }}
+                                                    />
+                                                  ))}
+                                                </Box>
+                                              </Box>
+                                            )}
                                           </Box>
                                         )}
                                         

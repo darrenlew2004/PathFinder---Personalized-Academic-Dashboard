@@ -1,0 +1,124 @@
+{
+  "feature_columns": [
+    "num_subjects_completed",
+    "current_gpa",
+    "gpa_trend_last_3",
+    "avg_coursework_percentage",
+    "avg_overall_percentage",
+    "num_fails",
+    "fail_rate",
+    "num_prerequisites",
+    "num_prerequisites_completed",
+    "num_prerequisites_missing",
+    "avg_prereq_grade_points",
+    "weighted_prereq_gpa",
+    "min_prereq_grade",
+    "max_prereq_grade",
+    "subject_pass_rate",
+    "subject_avg_score",
+    "subject_avg_gpa",
+    "subject_total_students",
+    "programme_code_encoded",
+    "gender_encoded",
+    "subject_code_encoded",
+    "cohort",
+    "has_financial_aid"
+  ],
+  "model_type": "RandomForestClassifier",
+  "n_estimators": 100,
+  "max_depth": 20,
+  "feature_importance": [
+    {
+      "feature": "current_gpa",
+      "importance": 0.1617890724779786
+    },
+    {
+      "feature": "subject_pass_rate",
+      "importance": 0.11725443512701682
+    },
+    {
+      "feature": "subject_avg_gpa",
+      "importance": 0.1046557522692345
+    },
+    {
+      "feature": "fail_rate",
+      "importance": 0.10451147550189277
+    },
+    {
+      "feature": "cohort",
+      "importance": 0.07532541098220327
+    },
+    {
+      "feature": "num_fails",
+      "importance": 0.07236477619043413
+    },
+    {
+      "feature": "avg_overall_percentage",
+      "importance": 0.048957491862719554
+    },
+    {
+      "feature": "avg_coursework_percentage",
+      "importance": 0.048881050497451915
+    },
+    {
+      "feature": "num_subjects_completed",
+      "importance": 0.04244564821495495
+    },
+    {
+      "feature": "gpa_trend_last_3",
+      "importance": 0.036491739196585334
+    },
+    {
+      "feature": "programme_code_encoded",
+      "importance": 0.033218730650115186
+    },
+    {
+      "feature": "subject_total_students",
+      "importance": 0.03004272111084431
+    },
+    {
+      "feature": "subject_code_encoded",
+      "importance": 0.029319971783126886
+    },
+    {
+      "feature": "subject_avg_score",
+      "importance": 0.023967240576178814
+    },
+    {
+      "feature": "weighted_prereq_gpa",
+      "importance": 0.014376133664506756
+    },
+    {
+      "feature": "avg_prereq_grade_points",
+      "importance": 0.012594365869889582
+    },
+    {
+      "feature": "gender_encoded",
+      "importance": 0.011434030401796922
+    },
+    {
+      "feature": "min_prereq_grade",
+      "importance": 0.009031350140538245
+    },
+    {
+      "feature": "max_prereq_grade",
+      "importance": 0.00884576473038559
+    },
+    {
+      "feature": "num_prerequisites",
+      "importance": 0.005205164133193302
+    },
+    {
+      "feature": "num_prerequisites_missing",
+      "importance": 0.004980477109233072
+    },
+    {
+      "feature": "num_prerequisites_completed",
+      "importance": 0.0034617073508876267
+    },
+    {
+      "feature": "has_financial_aid",
+      "importance": 0.0008454901588320307
+    }
+  ]
+}

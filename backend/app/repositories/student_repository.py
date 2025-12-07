@@ -20,6 +20,9 @@ class StudentRepository:
         self._prepared_find_by_id = None
         # Cache for completed subject codes to avoid repeated parsing
         self._completed_codes_cache = {}
+        # Cache for entire student objects (more aggressive)
+        self._student_object_cache = {}
+        self._cache_timestamps = {}
     
     def _get_prepared_find_by_id(self):
         """Lazy load prepared statement for find_by_id"""
@@ -29,17 +32,43 @@ class StudentRepository:
         return self._prepared_find_by_id
     
     def find_by_id(self, student_id: int) -> Optional[Student]:
-        """Find student by ID (int primary key) - uses prepared statement for speed"""
+        """Find student by ID (int primary key) - uses prepared statement for speed with aggressive caching"""
+        import time
+        
+        # Check object cache first (10 minute TTL)
+        if student_id in self._student_object_cache:
+            cached_time = self._cache_timestamps.get(student_id, 0)
+            if time.time() - cached_time < 600:  # 10 minutes
+                logger.info(f"Returning cached student object for {student_id}")
+                return self._student_object_cache[student_id]
+        
         try:
+            logger.info(f"Querying Cassandra for student {student_id}...")
             prepared = self._get_prepared_find_by_id()
-            result = self.session.execute(prepared, (student_id,))
+            # Reduced timeout to 5 seconds to fail faster
+            result = self.session.execute(prepared, (student_id,), timeout=5.0)
             row = result.one()
             
             if row:
-                return self._map_row_to_student(row)
+                student = self._map_row_to_student(row)
+                # Cache the result
+                self._student_object_cache[student_id] = student
+                self._cache_timestamps[student_id] = time.time()
+                # Limit cache size
+                if len(self._student_object_cache) > 500:
+                    oldest_keys = sorted(self._cache_timestamps.items(), key=lambda x: x[1])[:100]
+                    for key, _ in oldest_keys:
+                        self._student_object_cache.pop(key, None)
+                        self._cache_timestamps.pop(key, None)
+                logger.info(f"Student {student_id} fetched and cached from Cassandra")
+                return student
             return None
         except Exception as e:
-            logger.error(f"Error finding student by id: {str(e)}")
+            logger.error(f"Error finding student by id {student_id}: {str(e)}")
+            # Return cached data even if expired if Cassandra fails
+            if student_id in self._student_object_cache:
+                logger.warning(f"Cassandra failed, returning stale cache for student {student_id}")
+                return self._student_object_cache[student_id]
             return None
     
     def find_by_ic(self, ic: str) -> Optional[Student]:
@@ -240,18 +269,21 @@ class StudentRepository:
                 for entry in raw:
                     try:
                         if isinstance(entry, dict):
+                            # Fast path: use get() only once per key
                             code = entry.get('subjectcode') or entry.get('subject_code') or entry.get('code') or entry.get('subcode')
-                            grade = entry.get('grade') or entry.get('result') or entry.get('status')
-                            if code and (grade is None or str(grade).upper() not in fail_grades):
-                                codes.append(str(code))
+                            if code:
+                                grade = entry.get('grade') or entry.get('result') or entry.get('status')
+                                if grade is None or str(grade).upper() not in fail_grades:
+                                    codes.append(str(code))
                         else:
                             # Unknown element type; skip safely
                             continue
                     except Exception:
                         continue
-                # Cache and return
-                if len(self._completed_codes_cache) < 100:
+                # Cache and return (increased cache size)
+                if len(self._completed_codes_cache) < 1000:
                     self._completed_codes_cache[student_id] = codes
+                logger.info(f"Parsed {len(codes)} completed subjects for student {student_id}")
                 return codes
 
             # Case 2: JSON string form

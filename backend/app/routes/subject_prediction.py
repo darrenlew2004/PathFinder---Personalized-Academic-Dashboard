@@ -40,6 +40,11 @@ class SubjectPredictionResponse(BaseModel):
     recommendation: str
     cohort_pass_rate: Optional[float] = None
     cohort_avg_score: Optional[float] = None
+    # ML hybrid fields
+    ml_probability: Optional[float] = None
+    ml_confidence: Optional[float] = None
+    ml_top_factors: Optional[List[tuple]] = None
+    prediction_method: str = 'rule-based'
 
 
 class StudentPredictionReportResponse(BaseModel):
@@ -91,7 +96,11 @@ def _convert_prediction(pred: SubjectPrediction) -> SubjectPredictionResponse:
         missing_prereqs=pred.missing_prereqs,
         recommendation=pred.recommendation,
         cohort_pass_rate=pred.cohort_pass_rate,
-        cohort_avg_score=pred.cohort_avg_score
+        cohort_avg_score=pred.cohort_avg_score,
+        ml_probability=pred.ml_probability,
+        ml_confidence=pred.ml_confidence,
+        ml_top_factors=pred.ml_top_factors,
+        prediction_method=pred.prediction_method
     )
 
 

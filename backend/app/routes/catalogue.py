@@ -86,19 +86,26 @@ class WhatIfResponse(BaseModel):
 
 def get_current_user(authorization: Optional[str] = Header(None)):
     """Extract and validate JWT token from Authorization header and return numeric user_id."""
+    logger.debug("[JWT] Starting token validation")
     from app.services.jwt_service import jwt_service
 
     if not authorization or not authorization.startswith("Bearer "):
+        logger.warning("[JWT] No authorization header provided")
         raise HTTPException(status_code=401, detail="No token provided")
 
     token = authorization.split(" ")[1]
+    logger.debug(f"[JWT] Validating token: {token[:20]}...")
     claims = jwt_service.validate_token(token)
+    logger.debug(f"[JWT] Token validated, claims: {claims}")
 
     if not claims:
+        logger.warning("[JWT] Invalid token")
         raise HTTPException(status_code=401, detail="Invalid token")
 
     # jwt_service returns {'user_id': int|UUID|str, 'email': ...}
-    return claims["user_id"]
+    user_id = claims["user_id"]
+    logger.debug(f"[JWT] Returning user_id: {user_id}")
+    return user_id
 
 
 @router.get("/variants")
@@ -140,16 +147,25 @@ async def get_variant_courses(variant_key: str):
     }
 
 
+# Cache for electives to avoid rebuilding response
+_ELECTIVES_CACHE = {}
+
 @router.get("/variant/{variant_key}/electives")
 async def get_variant_electives(variant_key: str):
-    """Get elective groups and options for a variant"""
+    """Get elective groups and options for a variant (cached for performance)"""
+    # Check cache first
+    if variant_key in _ELECTIVES_CACHE:
+        logger.info(f"Returning cached electives for {variant_key}")
+        return _ELECTIVES_CACHE[variant_key]
+    
     variants = get_variants()
     if variant_key not in variants:
         raise HTTPException(status_code=404, detail="Variant not found")
     
     variant = variants[variant_key]
     
-    return {
+    # Build response
+    response = {
         "variant": variant_key,
         "elective_groups": {
             code: ElectiveGroupInfo(
@@ -172,6 +188,12 @@ async def get_variant_electives(variant_key: str):
             for code, group in variant.elective_groups.items()
         }
     }
+    
+    # Cache the response
+    _ELECTIVES_CACHE[variant_key] = response
+    logger.info(f"Cached electives for {variant_key}")
+    
+    return response
 
 
 @router.post("/progress", response_model=ProgressResponse)
@@ -239,21 +261,85 @@ async def what_if_analysis(request: WhatIfRequest):
     )
 
 
+# Cache for student progress to avoid repeated Cassandra queries
+_STUDENT_PROGRESS_CACHE = {}
+
 @router.get("/student/progress")
 async def get_student_progress(
     intake: str,
     entry_type: str,
     student_id: str = Depends(get_current_user)
 ):
-    """Get authenticated student's progress"""
+    """Get authenticated student's progress (cached for performance)"""
+    logger.info(f"[PROGRESS] Endpoint reached for intake={intake}, entry_type={entry_type}, student_id={student_id}")
     from app.repositories.student_repository import student_repository
     
-    # Fetch student and derive completed subject codes from student's stored column
-    student = student_repository.find_by_id(student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+    # Check cache first (5-minute TTL)
+    cache_key = f"{student_id}:{intake}:{entry_type}"
+    if cache_key in _STUDENT_PROGRESS_CACHE:
+        cached_data, cached_time = _STUDENT_PROGRESS_CACHE[cache_key]
+        import time
+        if time.time() - cached_time < 300:  # 5 minutes
+            logger.info(f"Returning cached progress for student {student_id}")
+            return cached_data
+    
+    logger.info(f"Fetching progress for student {student_id}...")
+    
+    # Try CSV fallback first (fast), then Cassandra (slow)
+    from app.services.csv_data_service import get_csv_service
+    csv_service = get_csv_service()
+    
+    completed_codes = []
+    data_source = "unknown"
+    
+    # Try CSV first (instant)
+    if csv_service.is_available():
+        try:
+            logger.info(f"Attempting to fetch from CSV for student {student_id}")
+            completed_codes = csv_service.get_completed_subject_codes(student_id)
+            if completed_codes:
+                data_source = "csv"
+                logger.info(f"✓ CSV: Student {student_id} has {len(completed_codes)} completed subjects")
+        except Exception as e:
+            logger.warning(f"CSV fallback failed: {e}")
+    
+    # If CSV failed or not available, try Cassandra with timeout
+    if not completed_codes:
+        try:
+            logger.info(f"Attempting to fetch from Cassandra for student {student_id}")
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+            
+            executor = ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(student_repository.find_by_id, student_id)
+            
+            try:
+                student = future.result(timeout=5.0)  # 5 second timeout
+            except FuturesTimeoutError:
+                logger.error(f"⚠ Cassandra query timed out for student {student_id}")
+                raise HTTPException(
+                    status_code=504, 
+                    detail="Database is slow. Please try again in a moment."
+                )
+            finally:
+                executor.shutdown(wait=False)
+            
+            if not student:
+                raise HTTPException(status_code=404, detail="Student not found")
 
-    completed_codes = student_repository.get_completed_subject_codes(student_id)
+            completed_codes = student_repository.get_completed_subject_codes(student_id)
+            data_source = "cassandra"
+            logger.info(f"✓ Cassandra: Student {student_id} has {len(completed_codes)} completed subjects")
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching from Cassandra: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error fetching student data: {str(e)}")
+    
+    if not completed_codes:
+        raise HTTPException(status_code=404, detail="Student not found in any data source")
+    
+    logger.info(f"Using data from: {data_source}")
     
     # Compute progress
     variants = get_variants()
@@ -265,7 +351,7 @@ async def get_student_progress(
     variant = variants[variant_key]
     progress = variant.compute_progress(set(completed_codes))
     
-    return ProgressResponse(
+    response = ProgressResponse(
         completed_credits=progress.completed_credits,
         total_credits=progress.total_credits,
         outstanding_credits=progress.outstanding_credits,
@@ -275,6 +361,18 @@ async def get_student_progress(
         either_pairs_remaining=progress.either_pairs_remaining,
         percent_complete=progress.percent_complete
     )
+    
+    # Cache the response
+    import time
+    _STUDENT_PROGRESS_CACHE[cache_key] = (response, time.time())
+    if len(_STUDENT_PROGRESS_CACHE) > 100:
+        # Clear oldest 50% of cache
+        sorted_items = sorted(_STUDENT_PROGRESS_CACHE.items(), key=lambda x: x[1][1])
+        _STUDENT_PROGRESS_CACHE.clear()
+        _STUDENT_PROGRESS_CACHE.update(dict(sorted_items[50:]))
+    
+    logger.info(f"Progress computed and cached for student {student_id}")
+    return response
 
 
 @router.get("/student/recommendations")

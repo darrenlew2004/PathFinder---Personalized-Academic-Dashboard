@@ -11,6 +11,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 # Grade to GPA mapping
 GRADE_POINTS = {
@@ -131,6 +132,11 @@ class SubjectPrediction:
     recommendation: str
     cohort_pass_rate: Optional[float] = None
     cohort_avg_score: Optional[float] = None
+    # ML-based predictions (hybrid approach)
+    ml_probability: Optional[float] = None  # ML model prediction
+    ml_confidence: Optional[float] = None  # ML confidence score
+    ml_top_factors: Optional[List[tuple]] = None  # Top contributing factors
+    prediction_method: str = 'rule-based'  # 'rule-based', 'ml', or 'hybrid'
 
 
 @dataclass
@@ -144,12 +150,14 @@ class StudentPredictionReport:
 
 
 class SubjectPredictionService:
-    """Service for predicting student success in subjects"""
+    """Service for predicting student success in subjects (Hybrid: Rule-based + ML)"""
     
     def __init__(self):
         self.df: Optional[pd.DataFrame] = None
         self.cohort_stats: Dict[str, Dict] = {}
+        self.ml_service = None
         self._load_data()
+        self._load_ml_service()
     
     def _load_data(self):
         """Load the flattened student data"""
@@ -157,6 +165,15 @@ class SubjectPredictionService:
         if data_path.exists():
             self.df = pd.read_csv(data_path)
             self._compute_cohort_stats()
+    
+    def _load_ml_service(self):
+        """Load ML prediction service for hybrid predictions"""
+        try:
+            from .ml_prediction_service import get_ml_prediction_service
+            self.ml_service = get_ml_prediction_service()
+        except Exception as e:
+            print(f"⚠ ML service not available: {e}")
+            self.ml_service = None
     
     def _compute_cohort_stats(self):
         """Compute cohort-level statistics for each subject"""
@@ -202,12 +219,58 @@ class SubjectPredictionService:
         clean_grade = grade.rstrip('*')
         return GRADE_POINTS.get(clean_grade, GRADE_POINTS.get(grade))
     
+    def _calculate_student_performance_features(self, student_id: int, student_subjects: Dict[str, Dict]) -> Dict:
+        """Calculate student performance features for ML model"""
+        if not student_subjects:
+            return {
+                'num_subjects_completed': 0,
+                'current_gpa': 0.0,
+                'gpa_trend_last_3': 0.0,
+                'avg_coursework_percentage': 0.0,
+                'avg_overall_percentage': 0.0,
+                'num_fails': 0,
+                'fail_rate': 0.0
+            }
+        
+        # Calculate current GPA
+        gpas = [s['grade_points'] for s in student_subjects.values() if s['grade_points'] is not None]
+        current_gpa = np.mean(gpas) if gpas else 0.0
+        
+        # GPA trend (last 3 vs previous 3)
+        gpa_trend = 0.0
+        if len(gpas) >= 6:
+            recent_3 = np.mean(gpas[-3:])
+            previous_3 = np.mean(gpas[-6:-3])
+            gpa_trend = recent_3 - previous_3
+        
+        # Average percentages
+        percentages = [s['overall_percentage'] for s in student_subjects.values() if s.get('overall_percentage') is not None]
+        avg_overall = np.mean(percentages) if percentages else 0.0
+        
+        # Fail count
+        failing_grades = ['D+', 'D', 'D-', 'E', 'F', 'F*']
+        num_fails = sum(1 for s in student_subjects.values() if s['grade'] in failing_grades)
+        fail_rate = num_fails / len(student_subjects) if student_subjects else 0.0
+        
+        return {
+            'num_subjects_completed': len(student_subjects),
+            'current_gpa': current_gpa,
+            'gpa_trend_last_3': gpa_trend,
+            'avg_coursework_percentage': 0.0,  # Not available in current data
+            'avg_overall_percentage': avg_overall,
+            'num_fails': num_fails,
+            'fail_rate': fail_rate
+        }
+    
     def _get_student_subjects(self, student_id: int) -> Dict[str, Dict]:
-        """Get all subjects taken by a student with their grades (with internal caching)"""
-        # Check cache first
+        """Get all subjects taken by a student with their grades (with LRU caching)"""
+        # Initialize cache if needed
         if not hasattr(self, '_student_cache'):
             self._student_cache = {}
+        if not hasattr(self, '_student_perf_cache'):
+            self._student_perf_cache = {}
         
+        # Check cache first
         if student_id in self._student_cache:
             return self._student_cache[student_id]
         
@@ -231,19 +294,42 @@ class SubjectPredictionService:
                 'status': row.get('status', '')
             }
         
-        # Cache the result (limit cache size to prevent memory issues)
-        if len(self._student_cache) < 100:
-            self._student_cache[student_id] = subjects
+        # LRU-style caching: Remove oldest if cache is full
+        if len(self._student_cache) >= 500:  # Increased from 100 to 500
+            # Remove 20% oldest entries
+            items = list(self._student_cache.items())
+            self._student_cache = dict(items[100:])
         
+        self._student_cache[student_id] = subjects
         return subjects
+    
+    def _get_cached_student_performance(self, student_id: int, student_subjects: Dict[str, Dict]) -> Dict:
+        """Get cached student performance features or calculate and cache"""
+        if not hasattr(self, '_student_perf_cache'):
+            self._student_perf_cache = {}
+        
+        if student_id in self._student_perf_cache:
+            return self._student_perf_cache[student_id]
+        
+        # Calculate and cache
+        perf = self._calculate_student_performance_features(student_id, student_subjects)
+        
+        # LRU-style caching
+        if len(self._student_perf_cache) >= 500:
+            items = list(self._student_perf_cache.items())
+            self._student_perf_cache = dict(items[100:])
+        
+        self._student_perf_cache[student_id] = perf
+        return perf
     
     def _predict_with_subjects(
         self, 
         student_id: int, 
         target_subject_code: str,
-        student_subjects: Dict[str, Dict]
+        student_subjects: Dict[str, Dict],
+        precomputed_ml: Optional[any] = None
     ) -> SubjectPrediction:
-        """Internal prediction method that accepts pre-fetched student subjects"""
+        """Internal prediction method that accepts pre-fetched student subjects and optional precomputed ML prediction"""
         prereqs = SUBJECT_PREREQUISITES.get(target_subject_code, [])
         
         prereq_performance = []
@@ -318,10 +404,68 @@ class SubjectPredictionService:
             elif risk_level == 'medium':
                 risk_level = 'high'
         
+        # === HYBRID APPROACH: Get ML prediction if available ===
+        ml_probability = None
+        ml_confidence = None
+        ml_top_factors = None
+        prediction_method = 'rule-based'
+        
+        # Use precomputed ML result if provided (batch mode), otherwise compute individually
+        ml_pred = precomputed_ml
+        
+        if ml_pred is None and self.ml_service and self.ml_service.is_available():
+            # Calculate student performance features (with caching)
+            student_features = self._get_cached_student_performance(student_id, student_subjects)
+            
+            # Prepare prerequisite features for ML
+            prereq_features = {
+                'num_prerequisites': len(prereqs),
+                'num_prerequisites_completed': len(prereq_performance),
+                'num_prerequisites_missing': len(missing_prereqs),
+                'avg_prereq_grade_points': np.mean([p.grade_points for p in prereq_performance]) if prereq_performance else 0.0,
+                'weighted_prereq_gpa': weighted_prereq_gpa,
+                'min_prereq_grade': min([p.grade_points for p in prereq_performance]) if prereq_performance else 0.0,
+                'max_prereq_grade': max([p.grade_points for p in prereq_performance]) if prereq_performance else 0.0,
+            }
+            
+            # Prepare cohort features for ML
+            cohort_features = {
+                'subject_pass_rate': cohort_pass_rate if cohort_pass_rate is not None else 0.5,
+                'subject_avg_score': cohort_avg_score if cohort_avg_score is not None else 50.0,
+                'subject_avg_gpa': cohort.get('avg_gpa', 2.0),
+                'subject_total_students': cohort.get('total_students', 0),
+            }
+            
+            # Get ML prediction
+            ml_pred = self.ml_service.predict(
+                student_features=student_features,
+                prereq_features=prereq_features,
+                cohort_features=cohort_features,
+                subject_code=target_subject_code
+            )
+        
+        if ml_pred:
+            ml_probability = ml_pred.success_probability
+            ml_confidence = ml_pred.confidence
+            ml_top_factors = ml_pred.top_factors
+            prediction_method = 'hybrid'
+            
+            # Use ML prediction as primary, adjust rule-based as secondary
+            # Weighted average: 70% ML + 30% rule-based
+            success_prob = ml_probability * 0.7 + success_prob * 0.3
+            risk_level = ml_pred.risk_level
+        
         # Generate recommendation
         recommendation = self._generate_recommendation(
             risk_level, weighted_prereq_gpa, prereq_performance, missing_prereqs, subject_name
         )
+        
+        # Add ML insights to recommendation if available
+        if ml_probability is not None and ml_top_factors:
+            ml_insight = f"\n\n🤖 ML Analysis (Confidence: {ml_confidence*100:.0f}%): "
+            ml_insight += f"Success probability {ml_probability*100:.0f}%. "
+            ml_insight += f"Key factors: {', '.join([f[0] for f in ml_top_factors[:3]])}."
+            recommendation += ml_insight
         
         return SubjectPrediction(
             subject_code=target_subject_code,
@@ -333,7 +477,11 @@ class SubjectPredictionService:
             missing_prereqs=missing_prereqs,
             recommendation=recommendation,
             cohort_pass_rate=cohort_pass_rate,
-            cohort_avg_score=cohort_avg_score
+            cohort_avg_score=cohort_avg_score,
+            ml_probability=ml_probability,
+            ml_confidence=ml_confidence,
+            ml_top_factors=ml_top_factors,
+            prediction_method=prediction_method
         )
     
     def _generate_recommendation(
@@ -377,23 +525,84 @@ class SubjectPredictionService:
             return f"ℹ️ Limited data to make prediction. This may be an entry-level subject."
     
     def predict_multiple_subjects(
-        self,
-        student_id: int,
+        self, 
+        student_id: int, 
         target_subject_codes: List[str]
     ) -> StudentPredictionReport:
-        """Predict success for multiple subjects (optimized to fetch student data once)"""
+        """Predict success for multiple subjects (optimized with batch inference and caching)"""
         
-        # Fetch student subjects once for all predictions
+        # Fetch student subjects once for all predictions (cached)
         student_subjects = self._get_student_subjects(student_id)
         
         # Calculate current GPA
         gpas = [s['grade_points'] for s in student_subjects.values() if s['grade_points'] is not None]
         current_gpa = np.mean(gpas) if gpas else 0.0
         
-        # Generate predictions by passing student_subjects directly
+        # Use cached student performance features
+        student_features = self._get_cached_student_performance(student_id, student_subjects)
+        
+        # Batch ML inference if available
+        ml_predictions_map = {}
+        if self.ml_service and self.ml_service.is_available():
+            batch_data = []
+            for code in target_subject_codes:
+                prereqs = SUBJECT_PREREQUISITES.get(code, [])
+                
+                # Calculate prereq features
+                prereq_performance = []
+                missing_prereqs = []
+                total_weighted_score = 0.0
+                total_weight = 0.0
+                
+                for prereq_code, weight in prereqs:
+                    if prereq_code in student_subjects:
+                        subj = student_subjects[prereq_code]
+                        gp = subj['grade_points']
+                        if gp is not None:
+                            prereq_performance.append((prereq_code, gp, weight))
+                            total_weighted_score += gp * weight
+                            total_weight += weight
+                    else:
+                        missing_prereqs.append(prereq_code)
+                
+                weighted_prereq_gpa = total_weighted_score / total_weight if total_weight > 0 else 0.0
+                
+                prereq_features = {
+                    'num_prerequisites': len(prereqs),
+                    'num_prerequisites_completed': len(prereq_performance),
+                    'num_prerequisites_missing': len(missing_prereqs),
+                    'avg_prereq_grade_points': np.mean([p[1] for p in prereq_performance]) if prereq_performance else 0.0,
+                    'weighted_prereq_gpa': weighted_prereq_gpa,
+                    'min_prereq_grade': min([p[1] for p in prereq_performance]) if prereq_performance else 0.0,
+                    'max_prereq_grade': max([p[1] for p in prereq_performance]) if prereq_performance else 0.0,
+                }
+                
+                cohort = self.cohort_stats.get(code, {})
+                cohort_features = {
+                    'subject_pass_rate': cohort.get('pass_rate') if cohort.get('pass_rate') is not None else 0.5,
+                    'subject_avg_score': cohort.get('avg_score') if cohort.get('avg_score') is not None else 50.0,
+                    'subject_avg_gpa': cohort.get('avg_gpa', 2.0),
+                    'subject_total_students': cohort.get('total_students', 0),
+                }
+                
+                batch_data.append({
+                    'student_features': student_features,
+                    'prereq_features': prereq_features,
+                    'cohort_features': cohort_features,
+                    'subject_code': code
+                })
+            
+            # Single batch ML inference call for all subjects
+            ml_results = self.ml_service.predict_batch(batch_data)
+            ml_predictions_map = {code: result for code, result in zip(target_subject_codes, ml_results)}
+        
+        # Generate predictions with pre-computed ML results
         predictions = []
         for code in target_subject_codes:
-            pred = self._predict_with_subjects(student_id, code, student_subjects)
+            pred = self._predict_with_subjects(
+                student_id, code, student_subjects, 
+                precomputed_ml=ml_predictions_map.get(code)
+            )
             predictions.append(pred)
         
         # Identify high-risk subjects

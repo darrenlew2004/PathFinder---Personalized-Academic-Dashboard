@@ -20,6 +20,11 @@ export interface SubjectPrediction {
   recommendation: string;
   cohort_pass_rate: number | null;
   cohort_avg_score: number | null;
+  // ML Hybrid fields
+  ml_probability?: number | null;
+  ml_confidence?: number | null;
+  ml_top_factors?: [string, number][] | null;
+  prediction_method?: string;
 }
 
 export interface StudentPredictionReport {
