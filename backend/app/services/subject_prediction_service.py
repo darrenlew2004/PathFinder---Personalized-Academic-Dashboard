@@ -160,11 +160,54 @@ class SubjectPredictionService:
         self._load_ml_service()
     
     def _load_data(self):
-        """Load the flattened student data"""
+        """Load the flattened student data (with CSV fallback)"""
+        # Try the flattened CSV first
         data_path = Path(__file__).parent.parent.parent / 'data' / 'flattened_students_subjects.csv'
+        print(f"🔍 Checking for flattened CSV at: {data_path}")
+        print(f"🔍 File exists: {data_path.exists()}")
+        
         if data_path.exists():
+            print(f"✓ Loading from flattened CSV...")
             self.df = pd.read_csv(data_path)
             self._compute_cohort_stats()
+            print(f"✓ Loaded {len(self.df)} records from flattened CSV")
+            return
+        
+        # Fallback: Load from subjectplanning_students.csv and flatten it
+        print("⚠ flattened_students_subjects.csv not found, using CSV fallback...")
+        from .csv_data_service import get_csv_service
+        csv_service = get_csv_service()
+        
+        if not csv_service.is_available():
+            print("❌ No data source available for predictions")
+            return
+        
+        # Flatten the CSV data into the format expected by this service
+        rows = []
+        for student_id in csv_service._data['id'].values:
+            try:
+                student_data = csv_service.get_student_by_id(int(student_id))
+                if student_data and 'subjects' in student_data:
+                    for subject in student_data['subjects']:
+                        rows.append({
+                            'student_id': int(student_id),
+                            'subject_code': subject.get('subjectCode', ''),
+                            'subject_name': subject.get('subjectName', ''),
+                            'grade': subject.get('grade', ''),
+                            'overall_percentage': subject.get('overallPercentage'),
+                            'coursework_percentage': subject.get('courseworkPercentage'),
+                            'exam_percentage': subject.get('examPercentage'),
+                        })
+            except Exception as e:
+                print(f"⚠ Error processing student {student_id}: {e}")
+                continue
+        
+        if rows:
+            self.df = pd.DataFrame(rows)
+            self._compute_cohort_stats()
+            print(f"✓ Loaded {len(self.df)} subject records from CSV for {self.df['student_id'].nunique()} students")
+        else:
+            print("❌ No data could be loaded from CSV")
     
     def _load_ml_service(self):
         """Load ML prediction service for hybrid predictions"""

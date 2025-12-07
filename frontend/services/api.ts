@@ -4,14 +4,14 @@ import axios from 'axios';
 declare const __VITE_ENV__ : any;
 const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || __VITE_ENV__ || {};
 
-// Development: prefer a relative URL so Vite's dev server proxy (vite.config.ts) forwards /api -> http://localhost:9000
+// Development: Use direct backend URL to bypass Vite proxy issues
 // Production: set VITE_API_URL in your environment/build (e.g. VITE_API_URL=https://api.example.com)
 let API_BASE_URL: string;
 if (env.VITE_API_URL !== undefined && env.VITE_API_URL !== null && env.VITE_API_URL !== '') {
   API_BASE_URL = env.VITE_API_URL;
 } else if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-  // Use relative path during local development so the Vite proxy can forward requests and avoid CORS
-  API_BASE_URL = '';
+  // BYPASS Vite proxy - connect directly to backend to avoid proxy timeout issues
+  API_BASE_URL = 'http://localhost:9000';
 } else {
   // Fallback (use explicit localhost backend if nothing else provided)
   API_BASE_URL = 'http://localhost:9000';

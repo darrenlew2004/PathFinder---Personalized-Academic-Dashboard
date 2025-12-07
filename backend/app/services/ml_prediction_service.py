@@ -60,7 +60,14 @@ class MLPredictionService:
                     }
             
             if self.model is not None:
-                print("✓ ML Model loaded successfully")
+                # CRITICAL FIX: Disable parallel processing to prevent hanging
+                # The model was trained with n_jobs=12 but during inference it hangs
+                # Set n_jobs=1 to use single-threaded prediction (still fast enough)
+                if hasattr(self.model, 'n_jobs'):
+                    self.model.n_jobs = 1
+                    print("✓ ML Model loaded successfully (single-threaded mode)")
+                else:
+                    print("✓ ML Model loaded successfully")
             else:
                 print("⚠ ML Model not found - predictions will use rule-based only")
                 
