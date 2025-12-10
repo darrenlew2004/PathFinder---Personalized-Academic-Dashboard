@@ -1,0 +1,69 @@
+Architecture & Design
+Why did you choose FastAPI over Flask/Django? What are the performance benefits?
+Why Cassandra as your database? What advantages does it provide for this use case vs PostgreSQL/MongoDB?
+How does your hybrid ML + rule-based prediction system work? Why not pure ML?
+What's your frontend state management strategy? (Redux setup, data flow)
+How do you handle real-time updates between frontend and backend?
+
+Machine Learning
+Why Random Forest over other algorithms (neural networks, gradient boosting, logistic regression)?
+What features does your model use? How did you select them?
+What's your model accuracy and how did you validate it? (cross-validation, test set performance)
+How do you handle class imbalance (pass vs fail rates)?
+How often do you retrain the model? What's your retraining pipeline?
+How do you prevent overfitting with limited student data?
+What's the confidence threshold for showing ML predictions vs fallback to rules?
+
+Data & Performance
+How do you handle missing or incomplete student data?
+What's your API response time for prediction requests?
+How did you optimize batch predictions? (I see BATCH_OPTIMIZATION.md)
+How do you handle concurrent users? What's your scalability plan?
+What's your data preprocessing pipeline? How do you clean/transform the data?
+
+Security & Authentication
+How do you secure student data? (JWT implementation, encryption at rest)
+What's your authentication flow? How do you prevent unauthorized access?
+How do you handle CORS in production vs development?
+How do you protect against common vulnerabilities (SQL injection, XSS, etc.)?
+
+Testing & Quality
+What's your test coverage? (I see test files - what do they validate?)
+How do you test ML model predictions? Unit tests vs integration tests?
+How do you ensure data quality from CSV imports?
+
+Business Logic
+How do you model prerequisite chains? What happens with circular dependencies?
+How do you handle different program variants (202301-normal, etc.)?
+What's your elective recommendation algorithm? How do you rank them?
+How do you calculate subject difficulty metrics? Is it static or dynamic?
+How do you handle credit transfers or exemptions?
+
+Deployment & DevOps
+What's your deployment strategy? (Docker? Cloud platform?)
+How do you monitor system health in production?
+What's your backup and disaster recovery plan for student data?
+How do you handle database migrations when schema changes?
+
+Future Enhancements
+What would you improve with more time?
+How would you scale this to thousands of students?
+What other ML models or features would you add?
+How would you integrate with actual university systems?
+
+Critical Technical Deep-Dives
+Walk me through a prediction request - from frontend button click to displaying results
+How does your subject prediction service work internally? (SUBJECT_PREREQUISITES logic)
+Explain your feature engineering process for the ML model
+What metrics do you track to measure system effectiveness?
+How do you handle edge cases (e.g., students who fail multiple times, late bloomers)?
+
+
+Pro Tips for Presentation:
+
+Have your architecture diagram ready
+Prepare a live demo with specific student examples
+Know your model metrics (accuracy, precision, recall, F1)
+Have performance benchmarks ready (API response times, prediction speed)
+Be ready to show code snippets for key components
+Prepare to explain trade-offs you made and why
