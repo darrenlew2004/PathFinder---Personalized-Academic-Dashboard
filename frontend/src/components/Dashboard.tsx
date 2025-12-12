@@ -27,7 +27,15 @@ import {
   Stack,
   Fade,
   Button,
+  Avatar,
+  TextField,
+  InputAdornment,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, LineChart, Line, Area, AreaChart } from 'recharts';
 import {
   TrendingUp,
   School,
@@ -43,6 +51,8 @@ import {
   Dashboard as DashboardIcon,
   Timeline,
   HourglassEmpty,
+  Search,
+  FilterList,
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
@@ -68,6 +78,12 @@ const Dashboard: React.FC = () => {
   const [predictions, setPredictions] = useState<StudentPredictionReport | null>(null);
   const [predictionsLoading, setPredictionsLoading] = useState(false);
   const [expandedPrediction, setExpandedPrediction] = useState<string | null>(null);
+  // Course filtering state
+  const [showAllCompleted, setShowAllCompleted] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
+  const [gradeFilter, setGradeFilter] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<string>('recent');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     // Only fetch if we don't already have student data from login
@@ -116,25 +132,17 @@ const Dashboard: React.FC = () => {
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
           
-          // Fetch with timeout to prevent hanging
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timed out after 5 minutes')), 300000)
-          );
-          
           console.log('[Planner] Fetching progress and electives...');
           const startTime = Date.now();
           
-          // Fetch progress and electives with timeout
-          const [prog, electivesData] = await Promise.race([
-            Promise.all([
-              getStudentProgress(
-                selectedVariant.split('-')[0] || '202301', 
-                selectedVariant.split('-')[1] || 'normal'
-              ),
-              getElectives(selectedVariant)
-            ]),
-            timeoutPromise
-          ]) as [any, any];
+          // Fetch progress and electives
+          const [prog, electivesData] = await Promise.all([
+            getStudentProgress(
+              selectedVariant.split('-')[0] || '202301', 
+              selectedVariant.split('-')[1] || 'normal'
+            ),
+            getElectives(selectedVariant)
+          ]);
           
           const loadTime = Date.now() - startTime;
           console.log(`[Planner] Data loaded in ${loadTime}ms`);
@@ -186,15 +194,7 @@ const Dashboard: React.FC = () => {
       if (electiveSubjects.length > 0) {
         const startTime = Date.now();
         
-        // Add timeout for predictions
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Prediction request timed out after 5 minutes')), 300000)
-        );
-        
-        const report = await Promise.race([
-          getMultipleSubjectPredictions(currentStudent.id, electiveSubjects),
-          timeoutPromise
-        ]) as any;
+        const report = await getMultipleSubjectPredictions(currentStudent.id, electiveSubjects);
         
         const loadTime = Date.now() - startTime;
         console.log(`[Predictions] Loaded in ${loadTime}ms`);
@@ -271,17 +271,7 @@ const Dashboard: React.FC = () => {
           boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)'
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <School sx={{ fontSize: 48 }} />
-          <Box>
-            <Typography variant="h4" fontWeight="bold">
-              Welcome back, {currentStudent.name || 'Student'}
-            </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
-              {currentStudent.program || currentStudent.programmecode} • Student ID: {currentStudent.id}
-            </Typography>
-          </Box>
-        </Stack>
+        {/* Header removed - now shown in Overview tab */}
       </Box>
 
       {/* Modern Tabs */}
@@ -325,79 +315,198 @@ const Dashboard: React.FC = () => {
       {tabValue === 0 && (
         <Fade in={tabValue === 0} timeout={500}>
           <Box>
-            {/* Stats Cards */}
+            {/* Welcome Header */}
+            <Card sx={{ mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+              <CardContent>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Avatar sx={{ width: 64, height: 64, bgcolor: 'white', color: 'primary.main', fontSize: '2rem' }}>
+                    {currentStudent.name?.charAt(0) || 'S'}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h4" fontWeight="bold">
+                      Welcome back, {currentStudent.name?.split(' ')[0] || 'Student'}!
+                    </Typography>
+                    <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                      {currentStudent.program || 'Student'} • Year {currentStudent.year} Sem {currentStudent.sem}
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Stats Cards - Redesigned */}
             <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
+                  <Typography sx={{ opacity: 0.9 }} gutterBottom variant="body2">
                     Overall CGPA
                   </Typography>
-                  <Typography variant="h4">
+                  <Typography variant="h3" fontWeight="bold">
                     {currentStudent.overallcgpa?.toFixed(2) || 'N/A'}
                   </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>out of 4.0</Typography>
                 </Box>
-                <TrendingUp color="primary" sx={{ fontSize: 40 }} />
+                <TrendingUp sx={{ fontSize: 50, opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
+                  <Typography sx={{ opacity: 0.9 }} gutterBottom variant="body2">
                     Overall CAVG
                   </Typography>
-                  <Typography variant="h4">
+                  <Typography variant="h3" fontWeight="bold">
                     {currentStudent.overallcavg?.toFixed(2) || 'N/A'}
                   </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>average score</Typography>
                 </Box>
-                <CheckCircle color="success" sx={{ fontSize: 40 }} />
+                <CheckCircle sx={{ fontSize: 50, opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
-                    Current Year
+                  <Typography sx={{ opacity: 0.9 }} gutterBottom variant="body2">
+                    Completed Courses
                   </Typography>
-                  <Typography variant="h4">{currentStudent.year || 'N/A'}</Typography>
+                  <Typography variant="h3" fontWeight="bold">
+                    {studentWithSubjects?.subjects.filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length || 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>courses passed</Typography>
                 </Box>
-                <School color="info" sx={{ fontSize: 40 }} />
+                <School sx={{ fontSize: 50, opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
-                    Semester
+                  <Typography sx={{ opacity: 0.9 }} gutterBottom variant="body2">
+                    Avg Attendance
                   </Typography>
-                  <Typography variant="h4">{currentStudent.sem || 'N/A'}</Typography>
+                  <Typography variant="h3" fontWeight="bold">
+                    {studentWithSubjects?.average_attendance?.toFixed(0) || 'N/A'}%
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>attendance rate</Typography>
                 </Box>
-                <CalendarToday color="warning" sx={{ fontSize: 40 }} />
+                <CalendarToday sx={{ fontSize: 50, opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Student Information */}
-      <Grid container spacing={3}>
+      {/* Performance Overview - Charts */}
+      <Grid container spacing={3} mb={4}>
+        {/* Grade Distribution Pie Chart */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+                <TrendingUp sx={{ mr: 1 }} color="primary" />
+                Grade Distribution
+              </Typography>
+              {studentWithSubjects && studentWithSubjects.subjects.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={(() => {
+                        const gradeCount: Record<string, number> = {};
+                        studentWithSubjects.subjects
+                          .filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
+                          .forEach(s => {
+                            const grade = s.grade || 'Unknown';
+                            gradeCount[grade] = (gradeCount[grade] || 0) + 1;
+                          });
+                        return Object.entries(gradeCount).map(([name, value]) => ({ name, value }));
+                      })()}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {(() => {
+                        const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
+                        const gradeCount: Record<string, number> = {};
+                        studentWithSubjects.subjects
+                          .filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
+                          .forEach(s => {
+                            const grade = s.grade || 'Unknown';
+                            gradeCount[grade] = (gradeCount[grade] || 0) + 1;
+                          });
+                        return Object.entries(gradeCount).map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ));
+                      })()}
+                    </Pie>
+                    <RechartsTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <Typography color="text.secondary" align="center" py={4}>No course data available</Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Performance Scores Bar Chart */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+                <CheckCircle sx={{ mr: 1 }} color="success" />
+                Recent Course Performance
+              </Typography>
+              {studentWithSubjects && studentWithSubjects.subjects.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={studentWithSubjects.subjects
+                      .filter(s => s.overallpercentage && s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
+                      .slice(0, 8)
+                      .map(s => ({
+                        name: s.subjectcode || 'N/A',
+                        score: s.overallpercentage || 0,
+                        fill: (s.overallpercentage || 0) >= 70 ? '#4caf50' : (s.overallpercentage || 0) >= 50 ? '#ff9800' : '#f44336'
+                      }))}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+                    <YAxis domain={[0, 100]} />
+                    <RechartsTooltip />
+                    <Bar dataKey="score" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <Typography color="text.secondary" align="center" py={4}>No performance data available</Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Student Information - Condensed */}
+      <Grid container spacing={3} mb={4}>
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
@@ -405,34 +514,24 @@ const Dashboard: React.FC = () => {
                 <Person sx={{ mr: 1 }} />
                 Personal Information
               </Typography>
-              <Table size="small">
-                <TableBody>
-                  <TableRow>
-                    <TableCell><strong>Name</strong></TableCell>
-                    <TableCell>{currentStudent.name || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>IC Number</strong></TableCell>
-                    <TableCell>{currentStudent.ic || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Gender</strong></TableCell>
-                    <TableCell>{currentStudent.gender || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Race</strong></TableCell>
-                    <TableCell>{currentStudent.race || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Country</strong></TableCell>
-                    <TableCell>{currentStudent.country || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Cohort</strong></TableCell>
-                    <TableCell>{currentStudent.cohort || 'N/A'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <Grid container spacing={2} mt={1}>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Name</Typography>
+                  <Typography variant="body1" fontWeight="medium">{currentStudent.name || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Gender</Typography>
+                  <Typography variant="body1" fontWeight="medium">{currentStudent.gender || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Race</Typography>
+                  <Typography variant="body1" fontWeight="medium">{currentStudent.race || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Country</Typography>
+                  <Typography variant="body1" fontWeight="medium">{currentStudent.country || 'N/A'}</Typography>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
         </Grid>
@@ -444,100 +543,43 @@ const Dashboard: React.FC = () => {
                 <School sx={{ mr: 1 }} />
                 Academic Information
               </Typography>
-              <Table size="small">
-                <TableBody>
-                  <TableRow>
-                    <TableCell><strong>Program</strong></TableCell>
-                    <TableCell>{currentStudent.program || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Program Code</strong></TableCell>
-                    <TableCell>{currentStudent.programmecode || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Year</strong></TableCell>
-                    <TableCell>{currentStudent.year || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Semester</strong></TableCell>
-                    <TableCell>{currentStudent.sem || 'N/A'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Status</strong></TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={currentStudent.status || 'Unknown'} 
-                        color={getStatusColor(currentStudent.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell><strong>Graduated</strong></TableCell>
-                    <TableCell>
-                      {currentStudent.graduated ? (
-                        <Chip label="Yes" color="success" size="small" />
-                      ) : (
-                        <Chip label="No" color="default" size="small" />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Academic Performance */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom display="flex" alignItems="center">
-                <TrendingUp sx={{ mr: 1 }} />
-                Academic Performance
-              </Typography>
               <Grid container spacing={2} mt={1}>
-                <Grid item xs={12} sm={4}>
-                  <Box textAlign="center" p={2} bgcolor="primary.light" borderRadius={2}>
-                    <Typography variant="body2" color="primary.contrastText">
-                      Overall CGPA
-                    </Typography>
-                    <Typography variant="h3" color="primary.contrastText" fontWeight="bold">
-                      {currentStudent.overallcgpa?.toFixed(2) || 'N/A'}
-                    </Typography>
-                  </Box>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Program</Typography>
+                  <Typography variant="body1" fontWeight="medium">{currentStudent.programmecode || 'N/A'}</Typography>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Box textAlign="center" p={2} bgcolor="success.light" borderRadius={2}>
-                    <Typography variant="body2" color="success.contrastText">
-                      Overall CAVG
-                    </Typography>
-                    <Typography variant="h3" color="success.contrastText" fontWeight="bold">
-                      {currentStudent.overallcavg?.toFixed(2) || 'N/A'}
-                    </Typography>
-                  </Box>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Cohort</Typography>
+                  <Typography variant="body1" fontWeight="medium">{currentStudent.cohort || 'N/A'}</Typography>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Box textAlign="center" p={2} bgcolor="info.light" borderRadius={2}>
-                    <Typography variant="body2" color="info.contrastText">
-                      Year 1 CGPA
-                    </Typography>
-                    <Typography variant="h3" color="info.contrastText" fontWeight="bold">
-                      {currentStudent.yearonecgpa?.toFixed(2) || 'N/A'}
-                    </Typography>
-                  </Box>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Status</Typography>
+                  <Chip 
+                    label={currentStudent.status || 'Unknown'} 
+                    color={getStatusColor(currentStudent.status)}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">Graduated</Typography>
+                  {currentStudent.graduated ? (
+                    <Chip label="Yes" color="success" size="small" />
+                  ) : (
+                    <Chip label="No" color="default" size="small" />
+                  )}
                 </Grid>
               </Grid>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
             {/* Divider between sections */}
             <Divider sx={{ my: 5 }}>
               <Chip icon={<BookOutlined />} label="Course Overview" color="primary" />
             </Divider>
 
-            {/* Courses Section */}
+            {/* Courses Section - Simplified */}
           {loading ? (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
               <CircularProgress />
@@ -548,187 +590,232 @@ const Dashboard: React.FC = () => {
             <Alert severity="info">No course data available</Alert>
           ) : (
             <>
-              {/* Course Statistics Summary */}
-              <Grid container spacing={3} mb={4}>
-                <Grid item xs={12} sm={6}>
-                  <Card>
-                    <CardContent>
-                      <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                          <Typography color="text.secondary" gutterBottom variant="body2">
-                            Avg Attendance
-                          </Typography>
-                          <Typography variant="h4">
-                            {studentWithSubjects.average_attendance?.toFixed(1) || 'N/A'}%
-                          </Typography>
-                        </Box>
-                        <CheckCircle color="success" sx={{ fontSize: 40 }} />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <Card>
-                    <CardContent>
-                      <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                          <Typography color="text.secondary" gutterBottom variant="body2">
-                            Completed Courses
-                          </Typography>
-                          <Typography variant="h4">
-                            {studentWithSubjects.subjects.filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length}
-                          </Typography>
-                        </Box>
-                        <BookOutlined color="primary" sx={{ fontSize: 40 }} />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-
-              {/* Taken Courses Table */}
-              <Card sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+              {/* Completed Courses - Compact Cards with Filtering */}
+              <Box mb={2}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
+                  <Typography variant="h6" display="flex" alignItems="center">
                     <CheckCircle sx={{ mr: 1 }} color="success" />
                     Completed Courses ({studentWithSubjects.subjects.filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length})
                   </Typography>
-                  <TableContainer component={Paper} sx={{ mt: 2 }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow sx={{ bgcolor: 'success.main' }}>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Code</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Course Name</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Grade</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Overall %</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Attendance %</TableCell>
-                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Year/Month</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {studentWithSubjects.subjects
-                          .filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
-                          .map((subject) => (
-                          <TableRow key={subject.id} hover>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="medium">
-                                {subject.subjectcode || 'N/A'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2">
-                                {subject.subjectname || 'N/A'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              {subject.grade ? (
+                  
+                  <Box display="flex" gap={2} flexWrap="wrap">
+                    {/* Search */}
+                    <TextField
+                      size="small"
+                      placeholder="Search courses..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Search />
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{ minWidth: 200 }}
+                    />
+                    
+                    {/* Sort */}
+                    <FormControl size="small" sx={{ minWidth: 150 }}>
+                      <InputLabel>Sort By</InputLabel>
+                      <Select
+                        value={sortBy}
+                        label="Sort By"
+                        onChange={(e) => setSortBy(e.target.value)}
+                      >
+                        <MenuItem value="recent">Most Recent</MenuItem>
+                        <MenuItem value="grade">Grade (A-F)</MenuItem>
+                        <MenuItem value="score-high">Score (High-Low)</MenuItem>
+                        <MenuItem value="score-low">Score (Low-High)</MenuItem>
+                        <MenuItem value="name">Name (A-Z)</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+                </Box>
+                
+                {/* Grade Filter Chips */}
+                <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
+                  <Chip 
+                    label="All" 
+                    onClick={() => setGradeFilter('All')}
+                    color={gradeFilter === 'All' ? 'primary' : 'default'}
+                    variant={gradeFilter === 'All' ? 'filled' : 'outlined'}
+                  />
+                  {['A', 'B', 'C', 'D', 'F'].map(grade => (
+                    <Chip 
+                      key={grade}
+                      label={grade} 
+                      onClick={() => setGradeFilter(grade)}
+                      color={gradeFilter === grade ? 'primary' : 'default'}
+                      variant={gradeFilter === grade ? 'filled' : 'outlined'}
+                    />
+                  ))}
+                </Box>
+              </Box>
+              
+              <Grid container spacing={2} mb={4}>
+                {(() => {
+                  // Filter and sort logic
+                  let filteredCourses = studentWithSubjects.subjects
+                    .filter(s => s.grade && !['P', 'EX', 'INC', 'W', '-'].includes(s.grade));
+                  
+                  // Apply search filter
+                  if (searchQuery) {
+                    filteredCourses = filteredCourses.filter(s => 
+                      s.subjectcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      s.subjectname?.toLowerCase().includes(searchQuery.toLowerCase())
+                    );
+                  }
+                  
+                  // Apply grade filter
+                  if (gradeFilter !== 'All') {
+                    filteredCourses = filteredCourses.filter(s => 
+                      s.grade?.startsWith(gradeFilter)
+                    );
+                  }
+                  
+                  // Apply sorting
+                  filteredCourses = [...filteredCourses].sort((a, b) => {
+                    switch (sortBy) {
+                      case 'grade':
+                        return (a.grade || '').localeCompare(b.grade || '');
+                      case 'score-high':
+                        return (b.overallpercentage || 0) - (a.overallpercentage || 0);
+                      case 'score-low':
+                        return (a.overallpercentage || 0) - (b.overallpercentage || 0);
+                      case 'name':
+                        return (a.subjectcode || '').localeCompare(b.subjectcode || '');
+                      case 'recent':
+                      default:
+                        // Sort by year/month descending
+                        const yearA = a.examyear || 0;
+                        const yearB = b.examyear || 0;
+                        if (yearA !== yearB) return yearB - yearA;
+                        return (b.exammonth || 0) - (a.exammonth || 0);
+                    }
+                  });
+                  
+                  // Show only first 6 unless "show all" is enabled
+                  const displayCourses = showAllCompleted ? filteredCourses : filteredCourses.slice(0, 6);
+                  
+                  return (
+                    <>
+                      {displayCourses.map((subject) => (
+                        <Grid item xs={12} sm={6} md={4} key={subject.id}>
+                          <Card sx={{ height: '100%', '&:hover': { boxShadow: 6 }, transition: 'box-shadow 0.3s' }}>
+                            <CardContent>
+                              <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
+                                <Typography variant="body2" fontWeight="bold" color="primary">
+                                  {subject.subjectcode}
+                                </Typography>
                                 <Chip 
                                   label={subject.grade} 
                                   color={getGradeColor(subject.grade)}
                                   size="small"
                                 />
-                              ) : 'N/A'}
-                            </TableCell>
-                            <TableCell align="center">
-                              <Box>
-                                <Typography variant="body2">
-                                  {subject.overallpercentage?.toFixed(1) || 'N/A'}
-                                  {subject.overallpercentage && '%'}
-                                </Typography>
-                                {subject.overallpercentage && (
-                                  <LinearProgress 
-                                    variant="determinate" 
-                                    value={subject.overallpercentage} 
-                                    sx={{ mt: 0.5, height: 6, borderRadius: 1 }}
-                                    color={
-                                      subject.overallpercentage >= 70 ? 'success' :
-                                      subject.overallpercentage >= 50 ? 'warning' : 'error'
-                                    }
-                                  />
-                                )}
                               </Box>
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography variant="body2">
-                                {subject.attendancepercentage?.toFixed(1) || 'N/A'}
-                                {subject.attendancepercentage && '%'}
+                              <Typography variant="body2" color="text.secondary" gutterBottom noWrap>
+                                {subject.subjectname || 'N/A'}
                               </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              {subject.examyear && subject.exammonth 
-                                ? `${subject.examyear}/${subject.exammonth}` 
-                                : 'N/A'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
+                              <Box mt={2}>
+                                <Box display="flex" justifyContent="space-between" mb={0.5}>
+                                  <Typography variant="caption" color="text.secondary">Score</Typography>
+                                  <Typography variant="caption" fontWeight="bold">
+                                    {subject.overallpercentage?.toFixed(1) || 'N/A'}%
+                                  </Typography>
+                                </Box>
+                                <LinearProgress 
+                                  variant="determinate" 
+                                  value={subject.overallpercentage || 0} 
+                                  sx={{ height: 6, borderRadius: 1 }}
+                                  color={
+                                    (subject.overallpercentage || 0) >= 70 ? 'success' :
+                                    (subject.overallpercentage || 0) >= 50 ? 'warning' : 'error'
+                                  }
+                                />
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                      
+                      {/* Show More/Less Button */}
+                      {filteredCourses.length > 6 && (
+                        <Grid item xs={12}>
+                          <Box display="flex" justifyContent="center" mt={2}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => setShowAllCompleted(!showAllCompleted)}
+                              endIcon={showAllCompleted ? <ExpandLess /> : <ExpandMore />}
+                            >
+                              {showAllCompleted ? 'Show Less' : `Show ${filteredCourses.length - 6} More Courses`}
+                            </Button>
+                          </Box>
+                        </Grid>
+                      )}
+                    </>
+                  );
+                })()}
+              </Grid>
 
-              {/* Untaken/Pending Courses Table */}
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+              {/* Pending Courses */}
+              {studentWithSubjects.subjects.filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length > 0 && (
+                <>
+                  <Typography variant="h6" gutterBottom display="flex" alignItems="center" mb={2}>
                     <CalendarToday sx={{ mr: 1 }} color="warning" />
                     Pending / In Progress ({studentWithSubjects.subjects.filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length})
                   </Typography>
-                  {studentWithSubjects.subjects.filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade)).length > 0 ? (
-                    <TableContainer component={Paper} sx={{ mt: 2 }}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ bgcolor: 'warning.main' }}>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Code</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Course Name</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Status</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Attendance %</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Coursework %</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {studentWithSubjects.subjects
-                            .filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade))
-                            .map((subject) => (
-                            <TableRow key={subject.id} hover>
-                              <TableCell>
-                                <Typography variant="body2" fontWeight="medium">
-                                  {subject.subjectcode || 'N/A'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {subject.subjectname || 'N/A'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="center">
-                                <Chip 
-                                  label={subject.grade || subject.status || 'Pending'} 
-                                  color={subject.grade === 'P' ? 'info' : subject.grade === 'EX' ? 'default' : 'warning'}
-                                  size="small"
-                                />
-                              </TableCell>
-                              <TableCell align="center">
-                                <Typography variant="body2">
-                                  {subject.attendancepercentage?.toFixed(1) || 'N/A'}
-                                  {subject.attendancepercentage && '%'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="center">
-                                {subject.courseworkpercentage?.toFixed(1) || 'N/A'}
-                                {subject.courseworkpercentage && '%'}
-                              </TableCell>
-                            </TableRow>
+                  
+                  <Grid container spacing={2}>
+                    {(() => {
+                      const pendingCourses = studentWithSubjects.subjects
+                        .filter(s => !s.grade || ['P', 'EX', 'INC', 'W', '-'].includes(s.grade));
+                      const displayPending = showAllPending ? pendingCourses : pendingCourses.slice(0, 6);
+                      
+                      return (
+                        <>
+                          {displayPending.map((subject) => (
+                            <Grid item xs={12} sm={6} md={4} key={subject.id}>
+                              <Card sx={{ height: '100%', borderLeft: '4px solid', borderColor: 'warning.main' }}>
+                                <CardContent>
+                                  <Typography variant="body2" fontWeight="bold" color="primary">
+                                    {subject.subjectcode}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary" gutterBottom noWrap>
+                                    {subject.subjectname || 'N/A'}
+                                  </Typography>
+                                  <Chip 
+                                    label={subject.grade || subject.status || 'Pending'} 
+                                    color="warning"
+                                    size="small"
+                                    sx={{ mt: 1 }}
+                                  />
+                                </CardContent>
+                              </Card>
+                            </Grid>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  ) : (
-                    <Typography color="text.secondary" sx={{ mt: 2 }}>No pending courses</Typography>
-                  )}
-                </CardContent>
-              </Card>
+                          
+                          {/* Show More/Less Button for Pending */}
+                          {pendingCourses.length > 6 && (
+                            <Grid item xs={12}>
+                              <Box display="flex" justifyContent="center" mt={2}>
+                                <Button
+                                  variant="outlined"
+                                  color="warning"
+                                  onClick={() => setShowAllPending(!showAllPending)}
+                                  endIcon={showAllPending ? <ExpandLess /> : <ExpandMore />}
+                                >
+                                  {showAllPending ? 'Show Less' : `Show ${pendingCourses.length - 6} More Courses`}
+                                </Button>
+                              </Box>
+                            </Grid>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </Grid>
+                </>
+              )}
             </>
           )}
             
@@ -984,8 +1071,102 @@ const Dashboard: React.FC = () => {
             <Alert severity="error">{plannerError}</Alert>
           ) : progress ? (
             <>
-              {/* Progress Summary Card */}
+              {/* MAIN SPOTLIGHT: Risk Overview (formerly Subject Recommendations) */}
               <Card 
+                sx={{ 
+                  mb: 4,
+                  borderRadius: 3,
+                  background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  boxShadow: '0 8px 32px rgba(102, 126, 234, 0.2)'
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Warning sx={{ fontSize: 36, color: 'warning.main' }} />
+                      <Typography variant="h4" fontWeight="bold">
+                        📊 Risk Overview
+                      </Typography>
+                      <Tooltip title="AI-powered success predictions for elective subjects based on your performance">
+                        <Info fontSize="small" color="action" />
+                      </Tooltip>
+                    </Box>
+                    {!predictions && !predictionsLoading && (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="large"
+                        startIcon={<TrendingUp />}
+                        onClick={loadPredictions}
+                        sx={{
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          px: 4,
+                          py: 1.5,
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        Load AI Risk Analysis
+                      </Button>
+                    )}
+                  </Box>
+                  
+                  {!predictions && !predictionsLoading ? (
+                    <Box 
+                      textAlign="center" 
+                      py={8}
+                      sx={{
+                        background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                        borderRadius: 2,
+                        border: '2px dashed',
+                        borderColor: 'primary.main'
+                      }}
+                    >
+                      <TrendingUp sx={{ fontSize: 80, color: 'primary.main', mb: 2, opacity: 0.5 }} />
+                      <Typography variant="h5" color="text.secondary" gutterBottom fontWeight="bold">
+                        Get AI-Powered Risk Analysis
+                      </Typography>
+                      <Typography variant="body1" color="text.secondary" mb={3}>
+                        Click the button above to analyze your academic history and get personalized subject risk assessments
+                      </Typography>
+                    </Box>
+                  ) : predictionsLoading ? (
+                    <Box 
+                      display="flex" 
+                      flexDirection="column"
+                      justifyContent="center" 
+                      alignItems="center"
+                      py={8}
+                    >
+                      <CircularProgress size={56} sx={{ mb: 2 }} />
+                      <Typography variant="h6" color="text.secondary">
+                        Analyzing your academic performance with AI...
+                      </Typography>
+                    </Box>
+                  ) : predictions && predictions.predictions.length > 0 ? (
+                    <>
+                      {predictions.high_risk_subjects.length > 0 && (
+                        <Alert severity="warning" sx={{ mb: 3, fontSize: '1rem' }}>
+                          <strong>⚠️ Attention needed:</strong> {predictions.high_risk_subjects.length} subject(s) may be challenging based on your prerequisite performance.
+                        </Alert>
+                      )}
+                      
+                      <TableContainer component={Paper} variant="outlined" sx={{ boxShadow: 2 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow sx={{ bgcolor: 'primary.main' }}>
+                              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Subject</TableCell>
+                              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Risk Level</TableCell>
+                              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Success Probability</TableCell>
+                              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Prereq GPA</TableCell>
+                              <TableCell sx={{ color: 'white' }}></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
                 sx={{ 
                   borderRadius: 3,
                   background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
