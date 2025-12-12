@@ -36,7 +36,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <AppBar position="static" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+    <AppBar position="static" sx={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)' }}>
       <Toolbar>
         <School sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>

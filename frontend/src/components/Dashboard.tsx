@@ -265,10 +265,10 @@ const Dashboard: React.FC = () => {
         sx={{ 
           mb: 4, 
           p: 3, 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)',
           borderRadius: 3,
           color: 'white',
-          boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)'
+          boxShadow: '0 10px 40px rgba(15, 12, 41, 0.4)'
         }}
       >
         {/* Header removed - now shown in Overview tab */}
@@ -316,7 +316,7 @@ const Dashboard: React.FC = () => {
         <Fade in={tabValue === 0} timeout={500}>
           <Box>
             {/* Welcome Header */}
-            <Card sx={{ mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+            <Card sx={{ mb: 4, background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)', color: 'white' }}>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={2}>
                   <Avatar sx={{ width: 64, height: 64, bgcolor: 'white', color: 'primary.main', fontSize: '2rem' }}>
@@ -337,7 +337,7 @@ const Dashboard: React.FC = () => {
             {/* Stats Cards - Redesigned */}
             <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -356,7 +356,7 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #24243e 0%, #302b63 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -375,7 +375,7 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -394,7 +394,7 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
+          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%)', color: 'white' }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -838,7 +838,7 @@ const Dashboard: React.FC = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
                       height: '100%',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)',
                       color: 'white'
                     }}>
                       <CardContent>
@@ -857,7 +857,7 @@ const Dashboard: React.FC = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
                       height: '100%',
-                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      background: 'linear-gradient(135deg, #24243e 0%, #302b63 100%)',
                       color: 'white'
                     }}>
                       <CardContent>
@@ -876,7 +876,7 @@ const Dashboard: React.FC = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
                       height: '100%',
-                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                      background: 'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)',
                       color: 'white'
                     }}>
                       <CardContent>
@@ -896,8 +896,8 @@ const Dashboard: React.FC = () => {
                     <Card sx={{ 
                       height: '100%',
                       background: analyticsData.score_trend_per_term && analyticsData.score_trend_per_term > 0 
-                        ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'
-                        : 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                        ? 'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)'
+                        : 'linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%)',
                       color: 'white'
                     }}>
                       <CardContent>
@@ -1042,7 +1042,7 @@ const Dashboard: React.FC = () => {
               alignItems="center" 
               minHeight="400px"
               sx={{
-                background: 'linear-gradient(135deg, #667eea22 0%, #764ba222 100%)',
+                background: 'linear-gradient(135deg, #0f0c2922 0%, #302b6322 100%)',
                 borderRadius: 3,
                 p: 4
               }}
@@ -1071,15 +1071,15 @@ const Dashboard: React.FC = () => {
             <Alert severity="error">{plannerError}</Alert>
           ) : progress ? (
             <>
-              {/* MAIN SPOTLIGHT: Risk Overview (formerly Subject Recommendations) */}
+              {/* MAIN SPOTLIGHT: Risk Overview (AI-Powered Subject Predictions) */}
               <Card 
                 sx={{ 
                   mb: 4,
                   borderRadius: 3,
-                  background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                  background: 'linear-gradient(135deg, #0f0c2911 0%, #302b6311 100%)',
                   border: '2px solid',
-                  borderColor: 'primary.main',
-                  boxShadow: '0 8px 32px rgba(102, 126, 234, 0.2)'
+                  borderColor: '#302b63',
+                  boxShadow: '0 8px 32px rgba(15, 12, 41, 0.3)'
                 }}
               >
                 <CardContent sx={{ p: 4 }}>
@@ -1105,7 +1105,7 @@ const Dashboard: React.FC = () => {
                           textTransform: 'none',
                           px: 4,
                           py: 1.5,
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)',
                           fontSize: '1.1rem',
                           fontWeight: 'bold'
                         }}
@@ -1120,7 +1120,7 @@ const Dashboard: React.FC = () => {
                       textAlign="center" 
                       py={8}
                       sx={{
-                        background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                        background: 'linear-gradient(135deg, #0f202711 0%, #2c536411 100%)',
                         borderRadius: 2,
                         border: '2px dashed',
                         borderColor: 'primary.main'
@@ -1164,397 +1164,6 @@ const Dashboard: React.FC = () => {
                               <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Success Probability</TableCell>
                               <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Prereq GPA</TableCell>
                               <TableCell sx={{ color: 'white' }}></TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                sx={{ 
-                  borderRadius: 3,
-                  background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
-                  border: '1px solid',
-                  borderColor: 'primary.light',
-                  mb: 3
-                }}
-              >
-                <CardContent sx={{ p: 4 }}>
-                  <Box display="flex" alignItems="center" gap={2} mb={3}>
-                    <DashboardIcon sx={{ fontSize: 36, color: 'primary.main' }} />
-                    <Typography variant="h4" fontWeight="bold">
-                      Your Academic Progress
-                    </Typography>
-                  </Box>
-
-                  {/* Progress Bar */}
-                  <Box mb={4}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                      <Typography variant="h6" color="text.secondary">
-                        Overall Completion
-                      </Typography>
-                      <Typography variant="h4" fontWeight="bold" color="primary.main">
-                        {progress.percent_complete.toFixed(1)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={progress.percent_complete} 
-                      sx={{ 
-                        height: 16, 
-                        borderRadius: 2,
-                        backgroundColor: 'rgba(0,0,0,0.1)',
-                        '& .MuiLinearProgress-bar': {
-                          borderRadius: 2,
-                          background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
-                        }
-                      }} 
-                    />
-                    <Box display="flex" justifyContent="space-between" mt={1}>
-                      <Typography variant="body2" color="text.secondary">
-                        {progress.completed_credits} credits completed
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {progress.total_credits} total credits
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* Credits Grid */}
-                  <Grid container spacing={3} mb={3}>
-                    <Grid item xs={12} md={4}>
-                      <Paper 
-                        elevation={0} 
-                        sx={{ 
-                          p: 3, 
-                          borderRadius: 2, 
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          color: 'white',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <CheckCircle sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
-                        <Typography variant="h3" fontWeight="bold">
-                          {progress.completed_credits}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          Completed Credits
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Paper 
-                        elevation={0} 
-                        sx={{ 
-                          p: 3, 
-                          borderRadius: 2, 
-                          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                          color: 'white',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <HourglassEmpty sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
-                        <Typography variant="h3" fontWeight="bold">
-                          {progress.outstanding_credits}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          Outstanding Credits
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Paper 
-                        elevation={0} 
-                        sx={{ 
-                          p: 3, 
-                          borderRadius: 2, 
-                          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                          color: 'white',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <School sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
-                        <Typography variant="h3" fontWeight="bold">
-                          {progress.total_credits}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          Total Credits Required
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-
-                  <Divider sx={{ my: 3 }} />
-
-                  {/* Remaining Requirements */}
-                  <Typography variant="h5" fontWeight="bold" mb={2}>
-                    📚 Remaining Requirements
-                  </Typography>
-
-                  <Grid container spacing={2}>
-                    {/* Core Subjects */}
-                    {progress.core_remaining.length > 0 && (
-                      <Grid item xs={12} md={6}>
-                        <Paper 
-                          elevation={0} 
-                          sx={{ 
-                            p: 3, 
-                            borderRadius: 2, 
-                            border: '2px solid',
-                            borderColor: 'error.light',
-                            backgroundColor: 'error.light',
-                            color: 'error.dark'
-                          }}
-                        >
-                          <Box display="flex" alignItems="center" gap={1} mb={2}>
-                            <BookOutlined />
-                            <Typography variant="h6" fontWeight="bold">
-                              Core Subjects
-                            </Typography>
-                            <Chip 
-                              label={progress.core_remaining.length} 
-                              size="small" 
-                              sx={{ 
-                                backgroundColor: 'error.main', 
-                                color: 'white',
-                                fontWeight: 'bold'
-                              }} 
-                            />
-                          </Box>
-                          <Stack spacing={1}>
-                            {progress.core_remaining.slice(0, 5).map((code) => (
-                              <Box 
-                                key={code}
-                                sx={{ 
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  p: 1.5,
-                                  borderRadius: 1,
-                                  backgroundColor: 'white'
-                                }}
-                              >
-                                <Typography variant="body1" fontWeight="600">
-                                  • {code}
-                                </Typography>
-                              </Box>
-                            ))}
-                            {progress.core_remaining.length > 5 && (
-                              <Typography variant="body2" color="text.secondary" sx={{ pl: 1, pt: 1 }}>
-                                ... and {progress.core_remaining.length - 5} more
-                              </Typography>
-                            )}
-                          </Stack>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {/* Discipline Electives */}
-                    {progress.discipline_elective_placeholders_remaining.length > 0 && (
-                      <Grid item xs={12} md={6}>
-                        <Paper 
-                          elevation={0} 
-                          sx={{ 
-                            p: 3, 
-                            borderRadius: 2, 
-                            border: '2px solid',
-                            borderColor: 'warning.light',
-                            backgroundColor: 'warning.light',
-                            color: 'warning.dark'
-                          }}
-                        >
-                          <Box display="flex" alignItems="center" gap={1} mb={2}>
-                            <Analytics />
-                            <Typography variant="h6" fontWeight="bold">
-                              Discipline Electives
-                            </Typography>
-                            <Chip 
-                              label={progress.discipline_elective_placeholders_remaining.length} 
-                              size="small" 
-                              sx={{ 
-                                backgroundColor: 'warning.main', 
-                                color: 'white',
-                                fontWeight: 'bold'
-                              }} 
-                            />
-                          </Box>
-                          <Stack spacing={1}>
-                            {progress.discipline_elective_placeholders_remaining.map((code) => (
-                              <Box 
-                                key={code}
-                                sx={{ 
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  p: 1.5,
-                                  borderRadius: 1,
-                                  backgroundColor: 'white'
-                                }}
-                              >
-                                <Typography variant="body1" fontWeight="600">
-                                  • {code}
-                                </Typography>
-                              </Box>
-                            ))}
-                          </Stack>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {/* Free Electives */}
-                    {progress.free_elective_placeholders_remaining.length > 0 && (
-                      <Grid item xs={12} md={6}>
-                        <Paper 
-                          elevation={0} 
-                          sx={{ 
-                            p: 3, 
-                            borderRadius: 2, 
-                            border: '2px solid',
-                            borderColor: 'info.light',
-                            backgroundColor: 'info.light',
-                            color: 'info.dark'
-                          }}
-                        >
-                          <Box display="flex" alignItems="center" gap={1} mb={2}>
-                            <School />
-                            <Typography variant="h6" fontWeight="bold">
-                              Free Electives
-                            </Typography>
-                            <Chip 
-                              label={progress.free_elective_placeholders_remaining.length} 
-                              size="small" 
-                              sx={{ 
-                                backgroundColor: 'info.main', 
-                                color: 'white',
-                                fontWeight: 'bold'
-                              }} 
-                            />
-                          </Box>
-                          <Stack spacing={1}>
-                            {progress.free_elective_placeholders_remaining.map((code) => (
-                              <Box 
-                                key={code}
-                                sx={{ 
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  p: 1.5,
-                                  borderRadius: 1,
-                                  backgroundColor: 'white'
-                                }}
-                              >
-                                <Typography variant="body1" fontWeight="600">
-                                  • {code}
-                                </Typography>
-                              </Box>
-                            ))}
-                          </Stack>
-                        </Paper>
-                      </Grid>
-                    )}
-                  </Grid>
-
-                  {/* Completion Message */}
-                  {progress.core_remaining.length === 0 && 
-                   progress.discipline_elective_placeholders_remaining.length === 0 && 
-                   progress.free_elective_placeholders_remaining.length === 0 && (
-                    <Box 
-                      textAlign="center" 
-                      py={4}
-                      sx={{
-                        background: 'linear-gradient(135deg, #11998e11 0%, #38ef7d11 100%)',
-                        borderRadius: 2,
-                        mt: 2
-                      }}
-                    >
-                      <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
-                      <Typography variant="h4" fontWeight="bold" color="success.main" gutterBottom>
-                        🎉 Congratulations!
-                      </Typography>
-                      <Typography variant="h6" color="text.secondary">
-                        You've completed all degree requirements!
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Subject Success Predictions */}
-              <Card sx={{ mt: 3, borderRadius: 3 }}>
-                <CardContent sx={{ p: 4 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Warning sx={{ fontSize: 32 }} color="warning" />
-                      <Typography variant="h5" fontWeight="bold">
-                        📈 Subject Recommendations
-                      </Typography>
-                      <Tooltip title="AI-powered success predictions for elective subjects based on your performance">
-                        <Info fontSize="small" color="action" />
-                      </Tooltip>
-                    </Box>
-                    {!predictions && !predictionsLoading && (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<TrendingUp />}
-                        onClick={loadPredictions}
-                        sx={{
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          px: 3,
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                        }}
-                      >
-                        Load AI Recommendations
-                      </Button>
-                    )}
-                  </Box>
-                  
-                  {!predictions && !predictionsLoading ? (
-                    <Box 
-                      textAlign="center" 
-                      py={6}
-                      sx={{
-                        background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
-                        borderRadius: 2,
-                        border: '2px dashed',
-                        borderColor: 'primary.main'
-                      }}
-                    >
-                      <TrendingUp sx={{ fontSize: 60, color: 'primary.main', mb: 2, opacity: 0.5 }} />
-                      <Typography variant="h6" color="text.secondary" gutterBottom>
-                        Get AI-Powered Recommendations
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" mb={3}>
-                        Click the button above to analyze your academic history and get personalized subject recommendations
-                      </Typography>
-                    </Box>
-                  ) : predictionsLoading ? (
-                    <Box 
-                      display="flex" 
-                      flexDirection="column"
-                      justifyContent="center" 
-                      alignItems="center"
-                      py={6}
-                    >
-                      <CircularProgress size={48} sx={{ mb: 2 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        Analyzing your academic performance with AI...
-                      </Typography>
-                    </Box>
-                  ) : predictions && predictions.predictions.length > 0 ? (
-                    <>
-                      {predictions.high_risk_subjects.length > 0 && (
-                        <Alert severity="warning" sx={{ mb: 2 }}>
-                          <strong>Attention needed:</strong> {predictions.high_risk_subjects.length} subject(s) may be challenging based on your prerequisite performance.
-                        </Alert>
-                      )}
-                      
-                      <TableContainer component={Paper} variant="outlined">
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Subject</TableCell>
-                              <TableCell align="center">Risk Level</TableCell>
-                              <TableCell align="center">Success Probability</TableCell>
-                              <TableCell align="center">Prereq GPA</TableCell>
-                              <TableCell></TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -1755,16 +1364,326 @@ const Dashboard: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Academic Progress Section */}
+              <Card 
+                sx={{ 
+                  borderRadius: 3,
+                  background: 'linear-gradient(135deg, #0f0c2911 0%, #302b6311 100%)',
+                  border: '1px solid',
+                  borderColor: '#302b63',
+                  mb: 3
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  <Box display="flex" alignItems="center" gap={2} mb={3}>
+                    <DashboardIcon sx={{ fontSize: 36, color: 'primary.main' }} />
+                    <Typography variant="h4" fontWeight="bold">
+                      Your Academic Progress
+                    </Typography>
+                  </Box>
+
+                  {/* Progress Bar */}
+                  <Box mb={4}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography variant="h6" color="text.secondary">
+                        Overall Completion
+                      </Typography>
+                      <Typography variant="h4" fontWeight="bold" color="primary.main">
+                        {progress.percent_complete.toFixed(1)}%
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={progress.percent_complete} 
+                      sx={{ 
+                        height: 16, 
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 2,
+                          background: 'linear-gradient(90deg, #0f0c29 0%, #302b63 100%)'
+                        }
+                      }} 
+                    />
+                    <Box display="flex" justifyContent="space-between" mt={1}>
+                      <Typography variant="body2" color="text.secondary">
+                        {progress.completed_credits} credits completed
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {progress.total_credits} total credits
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Credits Grid */}
+                  <Grid container spacing={3} mb={3}>
+                    <Grid item xs={12} md={4}>
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 3, 
+                          borderRadius: 2, 
+                          background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)',
+                          color: 'white',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <CheckCircle sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
+                        <Typography variant="h3" fontWeight="bold">
+                          {progress.completed_credits}
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          Completed Credits
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 3, 
+                          borderRadius: 2, 
+                          background: 'linear-gradient(135deg, #24243e 0%, #302b63 100%)',
+                          color: 'white',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <HourglassEmpty sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
+                        <Typography variant="h3" fontWeight="bold">
+                          {progress.outstanding_credits}
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          Outstanding Credits
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 3, 
+                          borderRadius: 2, 
+                          background: 'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)',
+                          color: 'white',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <School sx={{ fontSize: 48, mb: 1, opacity: 0.9 }} />
+                        <Typography variant="h3" fontWeight="bold">
+                          {progress.total_credits}
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          Total Credits Required
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+
+                  <Divider sx={{ my: 3 }} />
+
+                  {/* Remaining Requirements */}
+                  <Typography variant="h5" fontWeight="bold" mb={2}>
+                    📚 Remaining Requirements
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    {/* Core Subjects */}
+                    {progress.core_remaining.length > 0 && (
+                      <Grid item xs={12} md={6}>
+                        <Paper 
+                          elevation={0} 
+                          sx={{ 
+                            p: 3, 
+                            borderRadius: 2, 
+                            border: '2px solid',
+                            borderColor: 'error.light',
+                            backgroundColor: 'error.light',
+                            color: 'error.dark'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <BookOutlined />
+                            <Typography variant="h6" fontWeight="bold">
+                              Core Subjects
+                            </Typography>
+                            <Chip 
+                              label={progress.core_remaining.length} 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: 'error.main', 
+                                color: 'white',
+                                fontWeight: 'bold'
+                              }} 
+                            />
+                          </Box>
+                          <Stack spacing={1}>
+                            {progress.core_remaining.slice(0, 5).map((code) => (
+                              <Box 
+                                key={code}
+                                sx={{ 
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  p: 1.5,
+                                  borderRadius: 1,
+                                  backgroundColor: 'white'
+                                }}
+                              >
+                                <Typography variant="body1" fontWeight="600">
+                                  • {code}
+                                </Typography>
+                              </Box>
+                            ))}
+                            {progress.core_remaining.length > 5 && (
+                              <Typography variant="body2" color="text.secondary" sx={{ pl: 1, pt: 1 }}>
+                                ... and {progress.core_remaining.length - 5} more
+                              </Typography>
+                            )}
+                          </Stack>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {/* Discipline Electives */}
+                    {progress.discipline_elective_placeholders_remaining.length > 0 && (
+                      <Grid item xs={12} md={6}>
+                        <Paper 
+                          elevation={0} 
+                          sx={{ 
+                            p: 3, 
+                            borderRadius: 2, 
+                            border: '2px solid',
+                            borderColor: 'warning.light',
+                            backgroundColor: 'warning.light',
+                            color: 'warning.dark'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <Analytics />
+                            <Typography variant="h6" fontWeight="bold">
+                              Discipline Electives
+                            </Typography>
+                            <Chip 
+                              label={progress.discipline_elective_placeholders_remaining.length} 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: 'warning.main', 
+                                color: 'white',
+                                fontWeight: 'bold'
+                              }} 
+                            />
+                          </Box>
+                          <Stack spacing={1}>
+                            {progress.discipline_elective_placeholders_remaining.map((code) => (
+                              <Box 
+                                key={code}
+                                sx={{ 
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  p: 1.5,
+                                  borderRadius: 1,
+                                  backgroundColor: 'white'
+                                }}
+                              >
+                                <Typography variant="body1" fontWeight="600">
+                                  • {code}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {/* Free Electives */}
+                    {progress.free_elective_placeholders_remaining.length > 0 && (
+                      <Grid item xs={12} md={6}>
+                        <Paper 
+                          elevation={0} 
+                          sx={{ 
+                            p: 3, 
+                            borderRadius: 2, 
+                            border: '2px solid',
+                            borderColor: 'info.light',
+                            backgroundColor: 'info.light',
+                            color: 'info.dark'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <School />
+                            <Typography variant="h6" fontWeight="bold">
+                              Free Electives
+                            </Typography>
+                            <Chip 
+                              label={progress.free_elective_placeholders_remaining.length} 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: 'info.main', 
+                                color: 'white',
+                                fontWeight: 'bold'
+                              }} 
+                            />
+                          </Box>
+                          <Stack spacing={1}>
+                            {progress.free_elective_placeholders_remaining.map((code) => (
+                              <Box 
+                                key={code}
+                                sx={{ 
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  p: 1.5,
+                                  borderRadius: 1,
+                                  backgroundColor: 'white'
+                                }}
+                              >
+                                <Typography variant="body1" fontWeight="600">
+                                  • {code}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Paper>
+                      </Grid>
+                    )}
+                  </Grid>
+
+                  {/* Completion Message */}
+                  {progress.core_remaining.length === 0 && 
+                   progress.discipline_elective_placeholders_remaining.length === 0 && 
+                   progress.free_elective_placeholders_remaining.length === 0 && (
+                    <Box 
+                      textAlign="center" 
+                      py={4}
+                      sx={{
+                        background: 'linear-gradient(135deg, #5f2c8211 0%, #49a09d11 100%)',
+                        borderRadius: 2,
+                        mt: 2
+                      }}
+                    >
+                      <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+                      <Typography variant="h4" fontWeight="bold" color="success.main" gutterBottom>
+                        🎉 Congratulations!
+                      </Typography>
+                      <Typography variant="h6" color="text.secondary">
+                        You've completed all degree requirements!
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
             </>
           ) : (
             <Box 
               textAlign="center" 
               py={10}
               sx={{
-                background: 'linear-gradient(135deg, #667eea11 0%, #764ba211 100%)',
+                background: 'linear-gradient(135deg, #0f0c2911 0%, #302b6311 100%)',
                 borderRadius: 3,
                 border: '2px dashed',
-                borderColor: 'primary.light'
+                borderColor: '#302b63'
               }}
             >
               <DashboardIcon sx={{ fontSize: 80, color: 'primary.main', mb: 2, opacity: 0.3 }} />

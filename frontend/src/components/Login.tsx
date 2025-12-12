@@ -10,34 +10,17 @@ import {
   Button,
   Typography,
   Alert,
-  Tab,
-  Tabs,
   CircularProgress,
 } from '@mui/material';
 import { School } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { login, clearError } from '../../features/authSlice';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
-  return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-};
-
 const Login: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { loading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-  const [tabValue, setTabValue] = useState(0);
   const [loginData, setLoginData] = useState({ student_id: '' });
 
   React.useEffect(() => {
@@ -45,14 +28,6 @@ const Login: React.FC = () => {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
-
-  React.useEffect(() => {
-    dispatch(clearError());
-  }, [tabValue, dispatch]);
-
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,14 +44,14 @@ const Login: React.FC = () => {
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)',
       }}
     >
       <Container maxWidth="sm">
         <Card elevation={8}>
           <CardContent sx={{ p: 4 }}>
             <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
-              <School sx={{ fontSize: 60, color: '#667eea', mb: 2 }} />
+              <School sx={{ fontSize: 60, color: '#302b63', mb: 2 }} />
               <Typography variant="h4" fontWeight="bold" gutterBottom>
                 Student Risk Prediction
               </Typography>
@@ -85,19 +60,13 @@ const Login: React.FC = () => {
               </Typography>
             </Box>
 
-            <Tabs value={tabValue} onChange={handleTabChange} centered sx={{ mb: 2 }}>
-              <Tab label="Login" />
-              <Tab label="Register" disabled />
-            </Tabs>
-
             {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
             )}
 
-            <TabPanel value={tabValue} index={0}>
-              <form onSubmit={handleLoginSubmit}>
+            <form onSubmit={handleLoginSubmit}>
                 <TextField
                   fullWidth
                   label="Student ID"
@@ -115,22 +84,15 @@ const Login: React.FC = () => {
                   size="large"
                   disabled={loading}
                   sx={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 100%)',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                      background: 'linear-gradient(135deg, #302b63 0%, #0f0c29 100%)',
                     },
                   }}
                 >
                   {loading ? <CircularProgress size={24} color="inherit" /> : 'Login'}
                 </Button>
               </form>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={1}>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Registration is currently disabled. Please contact your administrator to get access.
-              </Alert>
-            </TabPanel>
           </CardContent>
         </Card>
       </Container>
