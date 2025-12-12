@@ -121,18 +121,11 @@ const Dashboard: React.FC = () => {
           setPlannerError(null);
           setPlannerLoading(true);
           
-          console.log('[Planner] Starting to load data...');
-          console.log('[Planner] Current student:', currentStudent?.id);
-          console.log('[Planner] Has studentWithSubjects:', !!studentWithSubjects);
-          console.log('[Planner] Selected variant:', selectedVariant);
-          
           // Ensure we have subjects available
           if (currentStudent && !studentWithSubjects) {
-            console.log('[Planner] Fetching student subjects...');
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
           
-          console.log('[Planner] Fetching progress and electives...');
           const startTime = Date.now();
           
           // Fetch progress and electives
@@ -143,9 +136,6 @@ const Dashboard: React.FC = () => {
             ),
             getElectives(selectedVariant)
           ]);
-          
-          const loadTime = Date.now() - startTime;
-          console.log(`[Planner] Data loaded in ${loadTime}ms`);
           
           setProgress(prog);
           setElectives(electivesData);
@@ -166,7 +156,6 @@ const Dashboard: React.FC = () => {
     
     try {
       setPredictionsLoading(true);
-      console.log('[Predictions] Starting to load AI recommendations...');
       
       // Get actual elective course codes from the elective groups
       const electiveCodes = new Set<string>();
@@ -189,19 +178,10 @@ const Dashboard: React.FC = () => {
       }
       
       const electiveSubjects = Array.from(electiveCodes).slice(0, 5); // Limit to 5 for faster loading
-      console.log(`[Predictions] Requesting predictions for ${electiveSubjects.length} subjects:`, electiveSubjects);
       
       if (electiveSubjects.length > 0) {
-        const startTime = Date.now();
-        
         const report = await getMultipleSubjectPredictions(currentStudent.id, electiveSubjects);
-        
-        const loadTime = Date.now() - startTime;
-        console.log(`[Predictions] Loaded in ${loadTime}ms`);
-        
         setPredictions(report);
-      } else {
-        console.log('[Predictions] No eligible subjects found');
       }
     } catch (e: any) {
       console.error('[Predictions] Error loading predictions:', e);
@@ -271,7 +251,6 @@ const Dashboard: React.FC = () => {
           boxShadow: '0 10px 40px rgba(15, 12, 41, 0.4)'
         }}
       >
-        {/* Header removed - now shown in Overview tab */}
       </Box>
 
       {/* Modern Tabs */}

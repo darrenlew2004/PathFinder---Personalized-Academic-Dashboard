@@ -1,0 +1,29 @@
+
+PERFORMANCE EVALUATION SUMMARY
+======================================================================
+
+Dataset Statistics:
+  Total Test Samples: 19,873
+  Actual Pass: 17,041 (85.75%)
+  Actual Fail: 2,832 (14.25%)
+
+Overall Metrics:
+  Accuracy:  0.8447 (84.47%)
+  ROC-AUC:   0.8746
+
+Classification Report:
+              precision    recall  f1-score   support
+
+    Fail (0)     0.4682    0.6614    0.5483      2832
+    Pass (1)     0.9396    0.8752    0.9062     17041
+
+    accuracy                         0.8447     19873
+   macro avg     0.7039    0.7683    0.7273     19873
+weighted avg     0.8724    0.8447    0.8552     19873
+
+
+Confusion Matrix:
+[[ 1873   959]
+ [ 2127 14914]]
+
+Generated: 2025-12-12 23:39:20
