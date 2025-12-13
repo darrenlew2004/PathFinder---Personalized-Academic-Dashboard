@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { School } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
-import { login, clearError } from '../../features/authSlice';
+import { login } from '../../features/authSlice';
 
 const Login: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();

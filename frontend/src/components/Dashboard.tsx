@@ -35,7 +35,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, LineChart, Line, Area, AreaChart } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
 import {
   TrendingUp,
   School,
@@ -52,7 +52,6 @@ import {
   Timeline,
   HourglassEmpty,
   Search,
-  FilterList,
 } from '@mui/icons-material';
 import { AppDispatch, RootState } from '../../store';
 import { fetchStudentStats, fetchStudentWithSubjects } from '../../features/studentSlice';
@@ -125,8 +124,6 @@ const Dashboard: React.FC = () => {
           if (currentStudent && !studentWithSubjects) {
             dispatch(fetchStudentWithSubjects(currentStudent.id));
           }
-          
-          const startTime = Date.now();
           
           // Fetch progress and electives
           const [prog, electivesData] = await Promise.all([
