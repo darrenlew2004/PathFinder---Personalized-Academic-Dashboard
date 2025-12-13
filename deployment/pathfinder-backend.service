@@ -1,0 +1,18 @@
+[Unit]
+Description=PathFinder Backend API Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/PathFinder---Personalized-Academic-Dashboard/backend
+Environment="PATH=/home/ubuntu/PathFinder---Personalized-Academic-Dashboard/backend/venv/bin"
+ExecStart=/home/ubuntu/PathFinder---Personalized-Academic-Dashboard/backend/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 9000 --workers 2
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/pathfinder-backend.log
+StandardError=append:/var/log/pathfinder-backend-error.log
+
+[Install]
+WantedBy=multi-user.target
