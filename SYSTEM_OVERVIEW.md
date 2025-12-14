@@ -75,15 +75,31 @@
 │                    APACHE CASSANDRA DATABASE                            │
 │                    (sunway.hep88.com:9042)                             │
 │                                                                         │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐          │
-│  │   students     │  │   subjects     │  │   programs     │          │
-│  │   table        │  │   table        │  │   table        │          │
-│  │                │  │                │  │                │          │
-│  │ • student_id   │  │ • student_id   │  │ • program_id   │          │
-│  │ • name         │  │ • subject_code │  │ • requirements │          │
-│  │ • cgpa         │  │ • grade        │  │ • credits      │          │
-│  │ • programme    │  │ • percentage   │  │ • electives    │          │
-│  └────────────────┘  └────────────────┘  └────────────────┘          │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────┐    │
+│  │   students table            │  │   subjects table            │    │
+│  │                             │  │                             │    │
+│  │ • id (primary key)          │  │ • student_id                │    │
+│  │ • name                      │  │ • subject_code              │    │
+│  │ • overallcgpa               │  │ • grade                     │    │
+│  │ • programmecode             │  │ • overall_percentage        │    │
+│  │ • cohort                    │  │ • coursework_percentage     │    │
+│  │ • gender                    │  │ • exam_year                 │    │
+│  │ • 17 more columns...        │  │ • cohort                    │    │
+│  └─────────────────────────────┘  └─────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│              PROGRAM CATALOG (Hardcoded in Python)                      │
+│                     (backend/app/catalog/)                              │
+│                                                                         │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐    │
+│  │ bcs_programs.py  │  │ bcs_electives.py │  │ program_catalog  │    │
+│  │                  │  │                  │  │ _models.py       │    │
+│  │ • Variants       │  │ • Elective groups│  │ • ProgrammeVariant│   │
+│  │ • Core courses   │  │ • Course lists   │  │ • Course         │    │
+│  │ • Semester plans │  │ • Prerequisites  │  │ • SemesterPlan   │    │
+│  │ • Either-pairs   │  │                  │  │ • ElectiveGroup  │    │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -1150,8 +1166,9 @@ const MemoizedPredictionCard = React.memo(PredictionCard);
 **PathFinder is a full-stack academic planning system that:**
 
 1. **Authenticates** students using JWT tokens
-2. **Stores** data in Cassandra (4,483 students, 99,362 subject records)
-3. **Predicts** subject success using hybrid ML + rule-based approach
+2. **Stores** data in Cassandra (students & subjects tables) + CSV files (4,483 students, 99,362 subject records)
+3. **Uses** hardcoded Python program catalog (BCS variants, electives, requirements)
+4. **Predicts** subject success using hybrid ML + rule-based approach
 4. **Achieves** 84.5% ML accuracy, 82% hybrid accuracy
 5. **Responds** in <27ms for batch predictions (5 subjects)
 6. **Displays** interactive predictions with explainability
